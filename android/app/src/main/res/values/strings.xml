@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BildDefence</string>
+    <string name="title_activity_main">BildDefence</string>
+    <string name="package_name">io.bildbot.bilddefence</string>
+    <string name="custom_url_scheme">io.bildbot.bilddefence</string>
+</resources>

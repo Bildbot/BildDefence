@@ -1,0 +1,317 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: #eaf8ff;
+  background: #05090e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --platform-safe-top: 0px;
+  --platform-safe-right: 0px;
+  --platform-safe-bottom: 0px;
+  --platform-safe-left: 0px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  min-height: 44px;
+}
+
+.app-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  grid-template-columns: minmax(0, 390px);
+  gap: 28px;
+  padding: max(12px, env(safe-area-inset-top), var(--platform-safe-top))
+    max(12px, env(safe-area-inset-right), var(--platform-safe-right))
+    max(12px, env(safe-area-inset-bottom), var(--platform-safe-bottom))
+    max(12px, env(safe-area-inset-left), var(--platform-safe-left));
+  background:
+    radial-gradient(circle at 30% 10%, rgba(41, 128, 161, 0.2), transparent 34rem),
+    linear-gradient(135deg, #05090e, #08131d 60%, #071019);
+}
+
+.game-frame {
+  position: relative;
+  width: min(390px, calc(100vw - 24px));
+  aspect-ratio: 390 / 640;
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+  border: 1px solid rgba(108, 206, 235, 0.24);
+  border-radius: 28px;
+  background: #081019;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  touch-action: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+.game-canvas,
+.game-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.hud {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 12px 11px 16px;
+  border: 1px solid rgba(132, 218, 244, 0.18);
+  border-radius: 18px;
+  background: rgba(4, 12, 19, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.hud span,
+.hud strong {
+  display: block;
+}
+.hud span {
+  color: #6f96a8;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hud strong {
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.icon-button {
+  width: 44px;
+  border: 1px solid rgba(124, 216, 244, 0.22);
+  border-radius: 14px;
+  color: #dff8ff;
+  background: #102a39;
+  cursor: pointer;
+}
+
+.menu-overlay,
+.dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 42px 28px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(3, 10, 16, 0.18), rgba(3, 10, 16, 0.96) 74%);
+}
+
+.menu-overlay.compact {
+  justify-content: center;
+  background: rgba(3, 10, 16, 0.86);
+  backdrop-filter: blur(12px);
+}
+.eyebrow {
+  margin: 0 0 10px;
+  color: #63cce9;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+h1 {
+  margin-bottom: 7px;
+  font-size: clamp(34px, 10vw, 46px);
+  line-height: 0.96;
+  letter-spacing: -0.055em;
+}
+h2 {
+  margin-bottom: 18px;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+.subtitle {
+  margin-bottom: 32px;
+  color: #89a7b5;
+}
+.menu-actions {
+  display: grid;
+  width: min(100%, 290px);
+  gap: 10px;
+}
+
+.button {
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    filter 120ms ease;
+}
+.button:active {
+  transform: scale(0.98);
+}
+.button:focus-visible,
+.icon-button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.button.primary {
+  color: #041117;
+  background: linear-gradient(135deg, #a7eeff, #55cce9);
+  box-shadow: 0 10px 30px rgba(59, 194, 228, 0.22);
+}
+.button.secondary {
+  color: #dcf7ff;
+  background: #123041;
+  border: 1px solid rgba(121, 217, 244, 0.2);
+}
+.button.ghost {
+  color: #91adba;
+  background: transparent;
+}
+.button.danger {
+  color: #ffe9e9;
+  background: #7b2931;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  justify-content: center;
+  background: rgba(2, 7, 11, 0.78);
+  backdrop-filter: blur(10px);
+}
+.dialog {
+  width: min(100%, 360px);
+  padding: 26px;
+  border: 1px solid rgba(112, 212, 241, 0.22);
+  border-radius: 24px;
+  text-align: left;
+  background: #0b1a25;
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+}
+.dialog .button {
+  width: 100%;
+  margin-top: 22px;
+}
+.dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.dialog-actions .button {
+  margin-top: 10px;
+}
+.range-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin: 18px 0;
+  color: #b8d1dc;
+}
+.range-row input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: #62d2ef;
+  min-height: 24px;
+}
+.range-row output {
+  color: #65d5f2;
+  font-variant-numeric: tabular-nums;
+}
+.toggle-row {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: #b8d1dc;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.toggle-row input {
+  width: 24px;
+  height: 24px;
+  accent-color: #5fd3ef;
+}
+
+.desktop-panel {
+  display: none;
+  align-self: center;
+  max-width: 330px;
+  color: #83a0ae;
+  line-height: 1.55;
+}
+.desktop-panel h2 {
+  color: #eaf8ff;
+}
+.desktop-panel dl {
+  margin-top: 32px;
+}
+.desktop-panel dl div {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.desktop-panel dt {
+  color: #6f8c9b;
+}
+.desktop-panel dd {
+  margin: 0;
+  color: #e0f6ff;
+}
+
+@media (min-width: 850px) {
+  .app-shell {
+    grid-template-columns: 390px minmax(240px, 330px);
+  }
+  .desktop-panel {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
