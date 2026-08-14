@@ -105,7 +105,8 @@ export function App({ session, bridge, platform, saves }: Props) {
     if (settlingRun || state.phase !== 'finished') return;
     setSettlingRun(true);
     try {
-      const finalExperience = combat?.guardianTotalExperience ?? progression.guardianTotalExperience;
+      const finalExperience =
+        combat?.guardianTotalExperience ?? progression.guardianTotalExperience;
       const nextProgression = await saves.completeRun(finalExperience);
       setProgression(nextProgression);
       if (action === 'restart') {
