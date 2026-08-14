@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { FIRST_COMBAT } from '../content/firstCombat';
 import type { CombatSnapshot } from '../game/combat/CombatSimulation';
+import {
+  applyGuardianStatUpgrades,
+  canUpgradeGuardianStat,
+  type GuardianStatUpgradeKey,
+} from '../game/progression/GuardianStats';
 import type { GameSession } from '../game/session/GameSession';
 import type { PlatformAdapter, SafeAreaInsets } from '../platform/PlatformAdapter';
-import type { GameSettings } from '../services/save/SaveRepository';
-import { DEFAULT_SETTINGS, type SaveRepository } from '../services/save/SaveRepository';
+import type { GameProgression, GameSettings } from '../services/save/SaveRepository';
+import {
+  DEFAULT_PROGRESSION,
+  DEFAULT_SETTINGS,
+  type SaveRepository,
+} from '../services/save/SaveRepository';
 import type { GameBridge } from '../shared/GameBridge';
 import { GameCanvas } from './GameCanvas';
 import { SettingsDialog } from './SettingsDialog';
@@ -17,14 +26,24 @@ type Props = {
   saves: SaveRepository;
 };
 
+type FinishedAction = 'restart' | 'menu';
+
 export function App({ session, bridge, platform, saves }: Props) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
+  const [progression, setProgression] = useState<GameProgression>(DEFAULT_PROGRESSION);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [combat, setCombat] = useState<CombatSnapshot | null>(null);
+  const [settlingRun, setSettlingRun] = useState(false);
+  const [spendingStat, setSpendingStat] = useState<GuardianStatUpgradeKey | null>(null);
   const settingsOpenRef = useRef(settingsOpen);
   const leaveConfirmOpenRef = useRef(leaveConfirmOpen);
+
+  const guardianStats = applyGuardianStatUpgrades(
+    FIRST_COMBAT.guardian,
+    progression.guardianStatUpgrades,
+  );
 
   useEffect(() => {
     settingsOpenRef.current = settingsOpen;
@@ -37,7 +56,10 @@ export function App({ session, bridge, platform, saves }: Props) {
   useEffect(() => bridge.on('combatSnapshot', setCombat), [bridge]);
 
   useEffect(() => {
-    void saves.load().then((save) => setSettings(save.settings));
+    void saves.load().then((save) => {
+      setSettings(save.settings);
+      setProgression(save.progression);
+    });
     void platform.ready();
     const stopLifecycle = platform.onLifecycleChange((lifecycle) => {
       if (lifecycle === 'inactive') session.pause();
@@ -75,9 +97,51 @@ export function App({ session, bridge, platform, saves }: Props) {
   };
 
   const start = () => {
-    session.start();
+    session.start(guardianStats);
     if (settings.vibration) void platform.haptic();
   };
+
+  const settleFinishedRun = async (action: FinishedAction) => {
+    if (settlingRun || state.phase !== 'finished') return;
+    setSettlingRun(true);
+    try {
+      const earnedPoints = Math.max(0, (combat?.guardianLevel ?? 1) - 1);
+      const nextProgression = await saves.completeRun(earnedPoints);
+      setProgression(nextProgression);
+      if (action === 'restart') {
+        session.start(guardianStats);
+        if (settings.vibration) void platform.haptic();
+      } else {
+        session.exit();
+      }
+    } finally {
+      setSettlingRun(false);
+    }
+  };
+
+  const spendStatPoint = async (stat: GuardianStatUpgradeKey) => {
+    if (
+      spendingStat !== null ||
+      progression.unspentStatPoints === 0 ||
+      !canUpgradeGuardianStat(FIRST_COMBAT.guardian, progression.guardianStatUpgrades, stat)
+    ) {
+      return;
+    }
+
+    setSpendingStat(stat);
+    try {
+      const nextProgression = await saves.spendGuardianStatPoint(stat);
+      setProgression(nextProgression);
+      if (settings.vibration) void platform.haptic();
+    } finally {
+      setSpendingStat(null);
+    }
+  };
+
+  const canSpendOn = (stat: GuardianStatUpgradeKey) =>
+    progression.unspentStatPoints > 0 &&
+    spendingStat === null &&
+    canUpgradeGuardianStat(FIRST_COMBAT.guardian, progression.guardianStatUpgrades, stat);
 
   return (
     <main className="app-shell" data-platform={platform.kind}>
@@ -153,32 +217,70 @@ export function App({ session, bridge, platform, saves }: Props) {
             <h1>{strings.title}</h1>
             <p className="subtitle">{strings.subtitle}</p>
             <section className="guardian-stats" aria-labelledby="guardian-stats-title">
-              <h2 id="guardian-stats-title">Характеристики стража</h2>
-              <dl>
-                <GuardianStat label="Здоровье" value={FIRST_COMBAT.guardian.maxHealth} />
-                <GuardianStat label="Барьер" value={FIRST_COMBAT.guardian.maxBarrier} />
+              <h2 id="guardian-stats-title">
+                Характеристики стража
+                {progression.unspentStatPoints > 0 && (
+                  <span className="stat-points-badge">+{progression.unspentStatPoints}</span>
+                )}
+              </h2>
+              <div className="guardian-stats-grid">
+                <GuardianStat
+                  label="Здоровье"
+                  value={formatNumber(guardianStats.maxHealth)}
+                  upgradeKey="maxHealth"
+                  canUpgrade={canSpendOn('maxHealth')}
+                  onUpgrade={spendStatPoint}
+                />
+                <GuardianStat
+                  label="Барьер"
+                  value={formatNumber(guardianStats.maxBarrier)}
+                  upgradeKey="maxBarrier"
+                  canUpgrade={canSpendOn('maxBarrier')}
+                  onUpgrade={spendStatPoint}
+                />
                 <GuardianStat
                   label="Броня"
-                  value={`${FIRST_COMBAT.guardian.armorPercent * 100}%`}
+                  value={`${formatNumber(guardianStats.armorPercent * 100)}%`}
+                  upgradeKey="armorPercent"
+                  canUpgrade={canSpendOn('armorPercent')}
+                  onUpgrade={spendStatPoint}
                 />
                 <GuardianStat
                   label="Восстановление"
-                  value={`${FIRST_COMBAT.guardian.healthRegenPerSecond}/с`}
+                  value={`${formatNumber(guardianStats.healthRegenPerSecond)}/с`}
+                  upgradeKey="healthRegenPerSecond"
+                  canUpgrade={canSpendOn('healthRegenPerSecond')}
+                  onUpgrade={spendStatPoint}
                 />
-                <GuardianStat label="Урон" value={FIRST_COMBAT.guardian.damage} />
+                <GuardianStat
+                  label="Урон"
+                  value={formatNumber(guardianStats.damage)}
+                  upgradeKey="damage"
+                  canUpgrade={canSpendOn('damage')}
+                  onUpgrade={spendStatPoint}
+                />
                 <GuardianStat
                   label="Скорость атаки"
-                  value={`${FIRST_COMBAT.guardian.attacksPerSecond}/с`}
+                  value={`${formatNumber(guardianStats.attacksPerSecond)}/с`}
+                  upgradeKey="attacksPerSecond"
+                  canUpgrade={canSpendOn('attacksPerSecond')}
+                  onUpgrade={spendStatPoint}
                 />
                 <GuardianStat
                   label="Шанс крит. удара"
-                  value={`${FIRST_COMBAT.guardian.criticalChance * 100}%`}
+                  value={`${formatNumber(guardianStats.criticalChance * 100)}%`}
+                  upgradeKey="criticalChance"
+                  canUpgrade={canSpendOn('criticalChance')}
+                  onUpgrade={spendStatPoint}
                 />
                 <GuardianStat
                   label="Крит. множитель"
-                  value={`×${FIRST_COMBAT.guardian.criticalMultiplier}`}
+                  value={`×${formatNumber(guardianStats.criticalMultiplier)}`}
+                  upgradeKey="criticalMultiplier"
+                  canUpgrade={canSpendOn('criticalMultiplier')}
+                  onUpgrade={spendStatPoint}
                 />
-              </dl>
+              </div>
             </section>
             <div className="menu-actions">
               <button className="button primary" type="button" onClick={start}>
@@ -239,10 +341,20 @@ export function App({ session, bridge, platform, saves }: Props) {
               {state.result === 'victory' ? strings.victoryHint : strings.defeatHint}
             </p>
             <div className="menu-actions">
-              <button className="button primary" type="button" onClick={start}>
+              <button
+                className="button primary"
+                type="button"
+                disabled={settlingRun}
+                onClick={() => void settleFinishedRun('restart')}
+              >
                 {strings.restart}
               </button>
-              <button className="button ghost" type="button" onClick={() => session.exit()}>
+              <button
+                className="button ghost"
+                type="button"
+                disabled={settlingRun}
+                onClick={() => void settleFinishedRun('menu')}
+              >
                 {strings.exit}
               </button>
             </div>
@@ -265,6 +377,12 @@ export function App({ session, bridge, platform, saves }: Props) {
             <dt>Забег</dt>
             <dd>#{state.runId}</dd>
           </div>
+          {state.phase === 'menu' && progression.unspentStatPoints > 0 && (
+            <div>
+              <dt>Очки характеристик</dt>
+              <dd>+{progression.unspentStatPoints}</dd>
+            </div>
+          )}
           {state.phase !== 'menu' && combat && (
             <>
               <div>
@@ -339,11 +457,30 @@ export function App({ session, bridge, platform, saves }: Props) {
   );
 }
 
-function GuardianStat({ label, value }: { label: string; value: string | number }) {
+type GuardianStatProps = {
+  label: string;
+  value: string | number;
+  upgradeKey: GuardianStatUpgradeKey;
+  canUpgrade: boolean;
+  onUpgrade: (stat: GuardianStatUpgradeKey) => void | Promise<void>;
+};
+
+function GuardianStat({ label, value, upgradeKey, canUpgrade, onUpgrade }: GuardianStatProps) {
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className="guardian-stat">
+      <div className="guardian-stat-copy">
+        <span className="guardian-stat-label">{label}</span>
+        <strong className="guardian-stat-value">{value}</strong>
+      </div>
+      <button
+        className="stat-upgrade-button"
+        type="button"
+        disabled={!canUpgrade}
+        aria-label={`Увеличить характеристику «${label}»`}
+        onClick={() => void onUpgrade(upgradeKey)}
+      >
+        +
+      </button>
     </div>
   );
 }
@@ -351,6 +488,10 @@ function GuardianStat({ label, value }: { label: string; value: string | number 
 function getExperiencePercent(combat: CombatSnapshot): number {
   if (combat.guardianExperienceForNextLevel === 0) return 100;
   return Math.min(100, (combat.guardianExperience / combat.guardianExperienceForNextLevel) * 100);
+}
+
+function formatNumber(value: number): string {
+  return String(Math.round(value * 1000) / 1000);
 }
 
 function formatTime(seconds: number): string {
