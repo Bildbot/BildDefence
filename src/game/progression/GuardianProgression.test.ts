@@ -5,6 +5,7 @@ import {
   MAX_GUARDIAN_LEVEL,
   getEnemyExperienceReward,
   getExperienceForNextGuardianLevel,
+  getGuardianLevelForTotalExperience,
   getTotalExperienceToReachGuardianLevel,
 } from './GuardianProgression';
 
@@ -26,6 +27,25 @@ describe('GuardianProgression', () => {
       level: 3,
       experience: 52,
       totalExperience: 500,
+      experienceForNextLevel: 722,
+    });
+  });
+
+  it('starts from saved total experience and continues from the exact same value', () => {
+    const progression = new GuardianProgression(300);
+    expect(progression.getSnapshot()).toMatchObject({
+      level: 2,
+      experience: 200,
+      totalExperience: 300,
+      experienceForNextLevel: 348,
+    });
+    expect(getGuardianLevelForTotalExperience(300)).toBe(2);
+
+    progression.addExperience(240);
+    expect(progression.getSnapshot()).toMatchObject({
+      level: 3,
+      experience: 92,
+      totalExperience: 540,
       experienceForNextLevel: 722,
     });
   });
