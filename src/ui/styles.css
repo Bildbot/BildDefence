@@ -273,16 +273,8 @@ h2 {
   font-size: 15px;
 }
 .stat-points-badge {
-  display: inline-flex;
-  align-items: center;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0 7px;
-  border: 1px solid rgba(126, 220, 248, 0.35);
-  border-radius: 999px;
-  color: #b8f1ff;
-  background: rgba(63, 175, 208, 0.16);
-  font-size: 12px;
+  color: #66e3a3;
+  font-size: 13px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
@@ -325,25 +317,22 @@ h2 {
   height: 44px;
   min-height: 44px;
   padding: 0;
-  border: 1px solid rgba(116, 218, 247, 0.28);
-  border-radius: 13px;
-  color: #dff9ff;
-  background: #113143;
+  border: 0;
+  color: #66e3a3;
+  background: transparent;
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 900;
   line-height: 1;
   cursor: pointer;
   transition:
     transform 120ms ease,
-    background 120ms ease,
     opacity 120ms ease;
 }
 .stat-upgrade-button:active:not(:disabled) {
-  transform: scale(0.94);
-  background: #1a4b61;
+  transform: scale(0.88);
 }
 .stat-upgrade-button:disabled {
-  opacity: 0.24;
+  opacity: 0.2;
   cursor: default;
 }
 .menu-actions {
