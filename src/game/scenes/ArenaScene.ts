@@ -1,8 +1,5 @@
 import Phaser from 'phaser';
-import {
-  MAX_ARENA_ENEMIES,
-  createArenaCombatDefinition,
-} from '../../content/arenaBalance';
+import { MAX_ARENA_ENEMIES, createArenaCombatDefinition } from '../../content/arenaBalance';
 import type { GuardianDefinition } from '../../content/firstCombat';
 import { ARENA_HEIGHT, ARENA_WIDTH } from '../../shared/constants';
 import type { GameBridge } from '../../shared/GameBridge';
