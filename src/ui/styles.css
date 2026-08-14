@@ -82,17 +82,16 @@ button {
 .hud {
   position: absolute;
   z-index: 3;
-  bottom: 14px;
-  left: 14px;
-  right: 14px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 82px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 11px 12px 11px 16px;
-  border: 1px solid rgba(132, 218, 244, 0.18);
-  border-radius: 18px;
-  background: rgba(4, 12, 19, 0.76);
-  backdrop-filter: blur(10px);
+  padding: 11px 14px 12px 16px;
+  border-top: 1px solid rgba(132, 218, 244, 0.24);
+  background: #081019;
 }
 
 .hud-status {

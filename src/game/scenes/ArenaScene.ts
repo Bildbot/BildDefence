@@ -43,14 +43,6 @@ export class ArenaScene extends Phaser.Scene {
     this.drawArena();
     this.guardian = this.add.circle(GUARDIAN_X, GUARDIAN_Y, 28, 0x56d8ff);
     this.guardian.setStrokeStyle(5, 0xdaf8ff, 0.9);
-    this.add
-      .text(GUARDIAN_X, GUARDIAN_Y + 42, 'СТРАЖ', {
-        color: '#dff9ff',
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '12px',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5);
 
     this.createPools();
     this.unsubscribeSession = this.session.subscribe(() => this.syncSession());
@@ -176,7 +168,7 @@ export class ArenaScene extends Phaser.Scene {
     for (let x = 30; x < ARENA_WIDTH; x += 30) graphics.lineBetween(x, 20, x, ARENA_HEIGHT - 20);
     for (let y = 40; y < ARENA_HEIGHT; y += 30) graphics.lineBetween(20, y, ARENA_WIDTH - 20, y);
     graphics.lineStyle(2, 0x58cbe8, 0.2);
-    graphics.lineBetween(24, GUARDIAN_Y + 34, ARENA_WIDTH - 24, GUARDIAN_Y + 34);
+    graphics.lineBetween(24, GUARDIAN_Y, ARENA_WIDTH - 24, GUARDIAN_Y);
     graphics.fillStyle(0x122c3c, 0.85);
     graphics.fillCircle(GUARDIAN_X, GUARDIAN_Y, 48);
 

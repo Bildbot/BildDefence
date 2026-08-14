@@ -2,7 +2,7 @@ import type { CombatDefinition } from '../../content/firstCombat';
 import { ARENA_HEIGHT, ARENA_WIDTH } from '../../shared/constants';
 
 export const GUARDIAN_X = ARENA_WIDTH / 2;
-export const GUARDIAN_Y = ARENA_HEIGHT - 62;
+export const GUARDIAN_Y = ARENA_HEIGHT - 82;
 export const ENEMY_RADIUS = 12;
 export const PROJECTILE_RADIUS = 4;
 
