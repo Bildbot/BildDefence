@@ -168,7 +168,9 @@ function isLegacySaveDataV1(value: unknown): value is LegacySaveDataV1 {
   return isSettings(value.settings) && isNonNegativeInteger(value.progression.completedRuns);
 }
 
-function isSettings(settings: Record<string, unknown>): settings is GameSettings & Record<string, unknown> {
+function isSettings(
+  settings: Record<string, unknown>,
+): settings is GameSettings & Record<string, unknown> {
   return (
     isVolume(settings.musicVolume) &&
     isVolume(settings.effectsVolume) &&
