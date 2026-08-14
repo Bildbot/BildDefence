@@ -89,7 +89,7 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 11px 14px 12px 16px;
+  padding: 9px 14px 10px 16px;
   border-top: 1px solid rgba(132, 218, 244, 0.24);
   background: #081019;
 }
@@ -111,8 +111,8 @@ button {
 }
 .health-track {
   position: relative;
-  height: 16px;
-  margin: 7px 0 5px;
+  height: 14px;
+  margin: 6px 0 4px;
   overflow: hidden;
   border-radius: 999px;
   background: #301417;
@@ -125,8 +125,8 @@ button {
 }
 .barrier-track {
   position: relative;
-  height: 12px;
-  margin: 0 0 5px;
+  height: 10px;
+  margin: 0 0 4px;
   overflow: hidden;
   border-radius: 999px;
   background: #102b3d;
@@ -135,6 +135,19 @@ button {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #4aa9ef, #9de8ff);
+  transition: width 140ms linear;
+}
+.experience-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #2b233b;
+}
+.experience-value {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b786ff, #e3c3ff);
   transition: width 140ms linear;
 }
 .hud small {
@@ -168,15 +181,16 @@ button {
   place-items: center;
   margin: 0;
   color: #041117;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 1px rgba(255, 255, 255, 0.28);
 }
-.hud .barrier-track .bar-label {
+.hud .barrier-track .bar-label,
+.hud .experience-track .bar-label {
   color: #dff8ff;
-  text-shadow: 0 1px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px rgba(0, 0, 0, 0.45);
 }
 
 .icon-button {
@@ -197,7 +211,7 @@ button {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding: 42px 28px;
+  padding: 34px 28px;
   text-align: center;
   background: linear-gradient(180deg, rgba(3, 10, 16, 0.18), rgba(3, 10, 16, 0.96) 74%);
 }
@@ -243,7 +257,7 @@ h2 {
 }
 .guardian-stats {
   width: min(100%, 320px);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   padding: 14px;
   border: 1px solid rgba(112, 212, 241, 0.18);
   border-radius: 18px;
@@ -251,32 +265,86 @@ h2 {
   text-align: left;
 }
 .guardian-stats h2 {
-  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
   color: #dff8ff;
   font-size: 15px;
 }
-.guardian-stats dl {
+.stat-points-badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0 7px;
+  border: 1px solid rgba(126, 220, 248, 0.35);
+  border-radius: 999px;
+  color: #b8f1ff;
+  background: rgba(63, 175, 208, 0.16);
+  font-size: 12px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.guardian-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-  margin: 0;
+  gap: 5px 10px;
 }
-.guardian-stats dl div {
+.guardian-stat {
+  min-width: 0;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 5px;
+}
+.guardian-stat-copy {
   min-width: 0;
 }
-.guardian-stats dt {
+.guardian-stat-label,
+.guardian-stat-value {
+  display: block;
   overflow: hidden;
-  color: #7897a6;
-  font-size: 10px;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.guardian-stats dd {
-  margin: 1px 0 0;
+.guardian-stat-label {
+  color: #7897a6;
+  font-size: 10px;
+}
+.guardian-stat-value {
+  margin-top: 1px;
   color: #e5f9ff;
   font-size: 14px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+.stat-upgrade-button {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid rgba(116, 218, 247, 0.28);
+  border-radius: 13px;
+  color: #dff9ff;
+  background: #113143;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    background 120ms ease,
+    opacity 120ms ease;
+}
+.stat-upgrade-button:active:not(:disabled) {
+  transform: scale(0.94);
+  background: #1a4b61;
+}
+.stat-upgrade-button:disabled {
+  opacity: 0.24;
+  cursor: default;
 }
 .menu-actions {
   display: grid;
@@ -295,11 +363,16 @@ h2 {
     transform 120ms ease,
     filter 120ms ease;
 }
-.button:active {
+.button:active:not(:disabled) {
   transform: scale(0.98);
+}
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .button:focus-visible,
 .icon-button:focus-visible,
+.stat-upgrade-button:focus-visible,
 input:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 2px;
