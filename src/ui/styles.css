@@ -110,7 +110,8 @@ button {
   font-variant-numeric: tabular-nums;
 }
 .health-track {
-  height: 7px;
+  position: relative;
+  height: 16px;
   margin: 7px 0 5px;
   overflow: hidden;
   border-radius: 999px;
@@ -123,11 +124,29 @@ button {
   transition: width 140ms linear;
 }
 .barrier-track {
-  height: 4px;
-  margin: -3px 0 5px;
+  position: relative;
+  height: 12px;
+  margin: 0 0 5px;
   overflow: hidden;
   border-radius: 999px;
   background: #102b3d;
+}
+.bar-label {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: #041117;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px rgba(255, 255, 255, 0.28);
+}
+.barrier-track .bar-label {
+  color: #dff8ff;
+  text-shadow: 0 1px rgba(0, 0, 0, 0.35);
 }
 .barrier-value {
   height: 100%;

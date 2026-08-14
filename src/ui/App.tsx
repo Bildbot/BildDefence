@@ -90,24 +90,32 @@ export function App({ session, bridge, platform, saves }: Props) {
                 <span>{strings.wave}</span>
                 <strong>{formatTime(combat.elapsedSeconds)}</strong>
               </div>
-              <div className="health-track" aria-label={strings.health}>
+              <div
+                className="health-track"
+                aria-label={`${strings.health}: ${Math.ceil(combat.guardianHealth)} / ${combat.guardianMaxHealth}`}
+              >
                 <div
                   className="health-value"
                   style={{ width: `${(combat.guardianHealth / combat.guardianMaxHealth) * 100}%` }}
                 />
+                <span className="bar-label">
+                  {Math.ceil(combat.guardianHealth)} / {combat.guardianMaxHealth}
+                </span>
               </div>
-              <div className="barrier-track" aria-label={strings.barrier}>
+              <div
+                className="barrier-track"
+                aria-label={`${strings.barrier}: ${Math.ceil(combat.guardianBarrier)} / ${combat.guardianMaxBarrier}`}
+              >
                 <div
                   className="barrier-value"
                   style={{
                     width: `${(combat.guardianBarrier / combat.guardianMaxBarrier) * 100}%`,
                   }}
                 />
+                <span className="bar-label">
+                  {Math.ceil(combat.guardianBarrier)} / {combat.guardianMaxBarrier}
+                </span>
               </div>
-              <small>
-                {strings.health}: {Math.ceil(combat.guardianHealth)} / {combat.guardianMaxHealth} ·{' '}
-                {strings.barrier}: {Math.ceil(combat.guardianBarrier)} / {combat.guardianMaxBarrier}
-              </small>
             </div>
             <button
               className="icon-button"
