@@ -140,7 +140,9 @@ export class SaveRepository {
       const previousExperience = current.progression.guardianTotalExperience;
       const runExperience = Math.max(previousExperience, settlement.guardianTotalExperience);
       const nextExperience =
-        settlement.result === 'defeat' ? getTotalExperienceAfterDeath(runExperience) : runExperience;
+        settlement.result === 'defeat'
+          ? getTotalExperienceAfterDeath(runExperience)
+          : runExperience;
       const previousLevel = getGuardianLevelForTotalExperience(previousExperience);
       const nextLevel = getGuardianLevelForTotalExperience(nextExperience);
       const statPointsEarned = Math.max(0, nextLevel - previousLevel);
@@ -331,9 +333,6 @@ function isValidTotalExperience(value: unknown): value is number {
 
 function isArenaLevel(value: unknown): value is number {
   return (
-    typeof value === 'number' &&
-    Number.isInteger(value) &&
-    value >= 1 &&
-    value <= MAX_ARENA_LEVEL
+    typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= MAX_ARENA_LEVEL
   );
 }
