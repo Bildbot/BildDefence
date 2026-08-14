@@ -276,7 +276,8 @@ export class CombatSimulation {
   private awardEnemyExperience(): void {
     const guardianLevel = this.progression.getSnapshot().level;
     const multiplier = getEnemyExperienceMultiplier(guardianLevel, this.definition.enemy.level);
-    const exactReward = this.definition.enemy.experienceReward * multiplier + this.experienceRemainder;
+    const exactReward =
+      this.definition.enemy.experienceReward * multiplier + this.experienceRemainder;
     const wholeReward = Math.floor(exactReward + Number.EPSILON);
     this.experienceRemainder = exactReward - wholeReward;
     this.progression.addExperience(wholeReward);
