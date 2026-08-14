@@ -35,11 +35,13 @@ export function App({ session, bridge, platform, saves }: Props) {
   const [progression, setProgression] = useState<GameProgression>(DEFAULT_PROGRESSION);
   const [selectedArena, setSelectedArena] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [combat, setCombat] = useState<CombatSnapshot | null>(null);
   const [settlingRun, setSettlingRun] = useState(false);
   const [spendingStat, setSpendingStat] = useState<GuardianStatUpgradeKey | null>(null);
   const settingsOpenRef = useRef(settingsOpen);
+  const statsOpenRef = useRef(statsOpen);
   const leaveConfirmOpenRef = useRef(leaveConfirmOpen);
 
   const guardianStats = applyGuardianStatUpgrades(
@@ -50,6 +52,10 @@ export function App({ session, bridge, platform, saves }: Props) {
   useEffect(() => {
     settingsOpenRef.current = settingsOpen;
   }, [settingsOpen]);
+
+  useEffect(() => {
+    statsOpenRef.current = statsOpen;
+  }, [statsOpen]);
 
   useEffect(() => {
     leaveConfirmOpenRef.current = leaveConfirmOpen;
@@ -69,6 +75,7 @@ export function App({ session, bridge, platform, saves }: Props) {
     });
     const stopBack = platform.onBack(() => {
       if (settingsOpenRef.current) setSettingsOpen(false);
+      else if (statsOpenRef.current) setStatsOpen(false);
       else if (leaveConfirmOpenRef.current) setLeaveConfirmOpen(false);
       else if (session.getSnapshot().phase === 'running') session.pause();
       else if (session.getSnapshot().phase === 'paused') setLeaveConfirmOpen(true);
@@ -230,75 +237,17 @@ export function App({ session, bridge, platform, saves }: Props) {
               maxUnlockedArena={progression.maxUnlockedArena}
               onChange={setSelectedArena}
             />
-            <section className="guardian-stats" aria-labelledby="guardian-stats-title">
-              <h2 id="guardian-stats-title">
-                Характеристики стража
-                {progression.unspentStatPoints > 0 && (
-                  <span className="stat-points-badge">+{progression.unspentStatPoints}</span>
-                )}
-              </h2>
-              <div className="guardian-stats-grid">
-                <GuardianStat
-                  label="Здоровье"
-                  value={formatNumber(guardianStats.maxHealth)}
-                  upgradeKey="maxHealth"
-                  canUpgrade={canSpendOn('maxHealth')}
-                  onUpgrade={spendStatPoint}
-                />
-                <GuardianStat
-                  label="Барьер"
-                  value={formatNumber(guardianStats.maxBarrier)}
-                  upgradeKey="maxBarrier"
-                  canUpgrade={canSpendOn('maxBarrier')}
-                  onUpgrade={spendStatPoint}
-                />
-                <GuardianStat
-                  label="Броня"
-                  value={`${formatNumber(guardianStats.armorPercent * 100)}%`}
-                  upgradeKey="armorPercent"
-                  canUpgrade={canSpendOn('armorPercent')}
-                  onUpgrade={spendStatPoint}
-                />
-                <GuardianStat
-                  label="Восстановление"
-                  value={`${formatNumber(guardianStats.healthRegenPerSecond)}/с`}
-                  upgradeKey="healthRegenPerSecond"
-                  canUpgrade={canSpendOn('healthRegenPerSecond')}
-                  onUpgrade={spendStatPoint}
-                />
-                <GuardianStat
-                  label="Урон"
-                  value={formatNumber(guardianStats.damage)}
-                  upgradeKey="damage"
-                  canUpgrade={canSpendOn('damage')}
-                  onUpgrade={spendStatPoint}
-                />
-                <GuardianStat
-                  label="Скорость атаки"
-                  value={`${formatNumber(guardianStats.attacksPerSecond)}/с`}
-                  upgradeKey="attacksPerSecond"
-                  canUpgrade={canSpendOn('attacksPerSecond')}
-                  onUpgrade={spendStatPoint}
-                />
-                <GuardianStat
-                  label="Шанс крит. удара"
-                  value={`${formatNumber(guardianStats.criticalChance * 100)}%`}
-                  upgradeKey="criticalChance"
-                  canUpgrade={canSpendOn('criticalChance')}
-                  onUpgrade={spendStatPoint}
-                />
-                <GuardianStat
-                  label="Крит. множитель"
-                  value={`×${formatNumber(guardianStats.criticalMultiplier)}`}
-                  upgradeKey="criticalMultiplier"
-                  canUpgrade={canSpendOn('criticalMultiplier')}
-                  onUpgrade={spendStatPoint}
-                />
-              </div>
-            </section>
             <div className="menu-actions">
               <button className="button primary" type="button" onClick={start}>
                 {strings.start}
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => setStatsOpen(true)}
+              >
+                Характеристики
+                {progression.unspentStatPoints > 0 && ` (+${progression.unspentStatPoints})`}
               </button>
               <button
                 className="button secondary"
@@ -445,6 +394,85 @@ export function App({ session, bridge, platform, saves }: Props) {
           onChange={updateSettings}
           onClose={() => setSettingsOpen(false)}
         />
+      )}
+      {statsOpen && (
+        <div className="dialog-backdrop" role="presentation">
+          <section
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guardian-stats-title"
+          >
+            <p className="eyebrow">ПРОКАЧКА</p>
+            <h2 id="guardian-stats-title">
+              Характеристики стража
+              {progression.unspentStatPoints > 0 && (
+                <span className="stat-points-badge"> +{progression.unspentStatPoints}</span>
+              )}
+            </h2>
+            <div className="guardian-stats-grid">
+              <GuardianStat
+                label="Здоровье"
+                value={formatNumber(guardianStats.maxHealth)}
+                upgradeKey="maxHealth"
+                canUpgrade={canSpendOn('maxHealth')}
+                onUpgrade={spendStatPoint}
+              />
+              <GuardianStat
+                label="Барьер"
+                value={formatNumber(guardianStats.maxBarrier)}
+                upgradeKey="maxBarrier"
+                canUpgrade={canSpendOn('maxBarrier')}
+                onUpgrade={spendStatPoint}
+              />
+              <GuardianStat
+                label="Броня"
+                value={`${formatNumber(guardianStats.armorPercent * 100)}%`}
+                upgradeKey="armorPercent"
+                canUpgrade={canSpendOn('armorPercent')}
+                onUpgrade={spendStatPoint}
+              />
+              <GuardianStat
+                label="Восстановление"
+                value={`${formatNumber(guardianStats.healthRegenPerSecond)}/с`}
+                upgradeKey="healthRegenPerSecond"
+                canUpgrade={canSpendOn('healthRegenPerSecond')}
+                onUpgrade={spendStatPoint}
+              />
+              <GuardianStat
+                label="Урон"
+                value={formatNumber(guardianStats.damage)}
+                upgradeKey="damage"
+                canUpgrade={canSpendOn('damage')}
+                onUpgrade={spendStatPoint}
+              />
+              <GuardianStat
+                label="Скорость атаки"
+                value={`${formatNumber(guardianStats.attacksPerSecond)}/с`}
+                upgradeKey="attacksPerSecond"
+                canUpgrade={canSpendOn('attacksPerSecond')}
+                onUpgrade={spendStatPoint}
+              />
+              <GuardianStat
+                label="Шанс крит. удара"
+                value={`${formatNumber(guardianStats.criticalChance * 100)}%`}
+                upgradeKey="criticalChance"
+                canUpgrade={canSpendOn('criticalChance')}
+                onUpgrade={spendStatPoint}
+              />
+              <GuardianStat
+                label="Крит. множитель"
+                value={`×${formatNumber(guardianStats.criticalMultiplier)}`}
+                upgradeKey="criticalMultiplier"
+                canUpgrade={canSpendOn('criticalMultiplier')}
+                onUpgrade={spendStatPoint}
+              />
+            </div>
+            <button className="button primary" type="button" onClick={() => setStatsOpen(false)}>
+              Закрыть
+            </button>
+          </section>
+        </div>
       )}
       {leaveConfirmOpen && (
         <div className="dialog-backdrop" role="presentation">
