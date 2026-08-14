@@ -41,6 +41,10 @@ export function getTotalExperienceToReachGuardianLevel(level: number): number {
   return total;
 }
 
+export function getGuardianLevelForTotalExperience(totalExperience: number): number {
+  return getProgressionStateForTotalExperience(totalExperience).level;
+}
+
 export function getEnemyExperienceReward(
   baseExperience: number,
   rank: EnemyExperienceRank,
@@ -50,9 +54,16 @@ export function getEnemyExperienceReward(
 }
 
 export class GuardianProgression {
-  private level = 1;
-  private experience = 0;
-  private totalExperience = 0;
+  private level: number;
+  private experience: number;
+  private totalExperience: number;
+
+  constructor(initialTotalExperience = 0) {
+    const initial = getProgressionStateForTotalExperience(initialTotalExperience);
+    this.level = initial.level;
+    this.experience = initial.experience;
+    this.totalExperience = initial.totalExperience;
+  }
 
   addExperience(amount: number): number {
     if (!Number.isFinite(amount) || amount <= 0 || this.level === MAX_GUARDIAN_LEVEL) return 0;
@@ -89,4 +100,28 @@ export class GuardianProgression {
       maxLevel: MAX_GUARDIAN_LEVEL,
     };
   }
+}
+
+function getProgressionStateForTotalExperience(totalExperience: number): {
+  level: number;
+  experience: number;
+  totalExperience: number;
+} {
+  const maxTotalExperience = getTotalExperienceToReachGuardianLevel(MAX_GUARDIAN_LEVEL);
+  const normalizedTotalExperience = Math.min(
+    maxTotalExperience,
+    Math.max(0, Number.isFinite(totalExperience) ? Math.floor(totalExperience) : 0),
+  );
+
+  let level = 1;
+  let experience = normalizedTotalExperience;
+  while (level < MAX_GUARDIAN_LEVEL) {
+    const requiredExperience = getExperienceForNextGuardianLevel(level);
+    if (experience < requiredExperience) break;
+    experience -= requiredExperience;
+    level += 1;
+  }
+
+  if (level === MAX_GUARDIAN_LEVEL) experience = 0;
+  return { level, experience, totalExperience: normalizedTotalExperience };
 }
