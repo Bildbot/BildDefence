@@ -80,6 +80,18 @@ describe('CombatSimulation', () => {
     });
   });
 
+  it('continues combat progression from saved total experience', () => {
+    const simulation = new CombatSimulation(fastVictory, 1, 300);
+    for (let index = 0; index < 180 && simulation.getSnapshot().result === null; index += 1) {
+      simulation.step(1 / 60);
+    }
+    expect(simulation.getSnapshot()).toMatchObject({
+      guardianLevel: 2,
+      guardianExperience: 220,
+      guardianTotalExperience: 320,
+    });
+  });
+
   it('finishes with defeat when a reached enemy drains guardian health', () => {
     const defeat: CombatDefinition = {
       guardian: { ...guardian, maxHealth: 10, damage: 0, attacksPerSecond: 1, projectileSpeed: 1 },
