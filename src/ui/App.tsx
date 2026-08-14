@@ -88,7 +88,9 @@ export function App({ session, bridge, platform, saves }: Props) {
             <div className="hud-status">
               <div className="hud-title-row">
                 <span>{strings.wave}</span>
-                <strong>{formatTime(combat.elapsedSeconds)}</strong>
+                <strong>
+                  Ур. {combat.guardianLevel} · {formatTime(combat.elapsedSeconds)}
+                </strong>
               </div>
               <div
                 className="health-track"
@@ -114,6 +116,24 @@ export function App({ session, bridge, platform, saves }: Props) {
                 />
                 <span className="bar-label">
                   {Math.ceil(combat.guardianBarrier)} / {combat.guardianMaxBarrier}
+                </span>
+              </div>
+              <div
+                className="experience-track"
+                aria-label={
+                  combat.guardianExperienceForNextLevel === 0
+                    ? `Уровень ${combat.guardianLevel}, максимум`
+                    : `Опыт: ${combat.guardianExperience} / ${combat.guardianExperienceForNextLevel}`
+                }
+              >
+                <div
+                  className="experience-value"
+                  style={{ width: `${getExperiencePercent(combat)}%` }}
+                />
+                <span className="bar-label">
+                  {combat.guardianExperienceForNextLevel === 0
+                    ? 'MAX'
+                    : `${combat.guardianExperience} / ${combat.guardianExperienceForNextLevel} XP`}
                 </span>
               </div>
             </div>
@@ -248,6 +268,20 @@ export function App({ session, bridge, platform, saves }: Props) {
           {state.phase !== 'menu' && combat && (
             <>
               <div>
+                <dt>Уровень</dt>
+                <dd>
+                  {combat.guardianLevel} / {combat.guardianMaxLevel}
+                </dd>
+              </div>
+              <div>
+                <dt>Опыт</dt>
+                <dd>
+                  {combat.guardianExperienceForNextLevel === 0
+                    ? 'MAX'
+                    : `${combat.guardianExperience} / ${combat.guardianExperienceForNextLevel}`}
+                </dd>
+              </div>
+              <div>
                 <dt>{strings.health}</dt>
                 <dd>
                   {combat.guardianHealth} / {combat.guardianMaxHealth}
@@ -312,6 +346,11 @@ function GuardianStat({ label, value }: { label: string; value: string | number 
       <dd>{value}</dd>
     </div>
   );
+}
+
+function getExperiencePercent(combat: CombatSnapshot): number {
+  if (combat.guardianExperienceForNextLevel === 0) return 100;
+  return Math.min(100, (combat.guardianExperience / combat.guardianExperienceForNextLevel) * 100);
 }
 
 function formatTime(seconds: number): string {

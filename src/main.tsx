@@ -7,6 +7,7 @@ import { BrowserStorageAdapter } from './services/storage/BrowserStorageAdapter'
 import { GameBridge } from './shared/GameBridge';
 import { App } from './ui/App';
 import './ui/styles.css';
+import './ui/experience.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element is missing');

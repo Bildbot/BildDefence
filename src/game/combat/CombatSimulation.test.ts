@@ -16,7 +16,14 @@ const guardian = {
 
 const fastVictory: CombatDefinition = {
   guardian,
-  enemy: { maxHealth: 1, speed: 1, attackDamage: 1, attackIntervalSeconds: 1, stopDistance: 10 },
+  enemy: {
+    maxHealth: 1,
+    speed: 1,
+    attackDamage: 1,
+    attackIntervalSeconds: 1,
+    stopDistance: 10,
+    experienceReward: 10,
+  },
   wave: { enemyCount: 2, spawnIntervalSeconds: 0.1 },
 };
 
@@ -46,6 +53,33 @@ describe('CombatSimulation', () => {
     expect(simulation.getSnapshot().defeatedEnemies).toBe(2);
   });
 
+  it('awards experience for defeated enemies and levels the guardian', () => {
+    const experienceCombat: CombatDefinition = {
+      guardian,
+      enemy: {
+        maxHealth: 1,
+        speed: 1,
+        attackDamage: 1,
+        attackIntervalSeconds: 1,
+        stopDistance: 10,
+        experienceReward: 60,
+      },
+      wave: { enemyCount: 2, spawnIntervalSeconds: 0.1 },
+    };
+    const simulation = new CombatSimulation(experienceCombat, 1);
+    for (let index = 0; index < 180 && simulation.getSnapshot().result === null; index += 1) {
+      simulation.step(1 / 60);
+    }
+    expect(simulation.getSnapshot()).toMatchObject({
+      defeatedEnemies: 2,
+      guardianLevel: 2,
+      guardianExperience: 20,
+      guardianExperienceForNextLevel: 348,
+      guardianTotalExperience: 120,
+      guardianMaxLevel: 50,
+    });
+  });
+
   it('finishes with defeat when a reached enemy drains guardian health', () => {
     const defeat: CombatDefinition = {
       guardian: { ...guardian, maxHealth: 10, damage: 0, attacksPerSecond: 1, projectileSpeed: 1 },
@@ -55,6 +89,7 @@ describe('CombatSimulation', () => {
         attackDamage: 10,
         attackIntervalSeconds: 0.1,
         stopDistance: 80,
+        experienceReward: 10,
       },
       wave: { enemyCount: 1, spawnIntervalSeconds: 1 },
     };
@@ -82,6 +117,7 @@ describe('CombatSimulation', () => {
         attackDamage: 40,
         attackIntervalSeconds: 0.1,
         stopDistance: 80,
+        experienceReward: 10,
       },
       wave: { enemyCount: 1, spawnIntervalSeconds: 1 },
     };
@@ -104,5 +140,8 @@ describe('CombatSimulation', () => {
     expect(snapshot.guardianHealth).toBeGreaterThan(0);
     expect(snapshot.elapsedSeconds).toBeGreaterThanOrEqual(45);
     expect(snapshot.elapsedSeconds).toBeLessThanOrEqual(75);
+    expect(snapshot.guardianLevel).toBe(2);
+    expect(snapshot.guardianExperience).toBe(140);
+    expect(snapshot.guardianTotalExperience).toBe(240);
   });
 });

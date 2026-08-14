@@ -16,6 +16,7 @@ export type EnemyDefinition = Readonly<{
   attackDamage: number;
   attackIntervalSeconds: number;
   stopDistance: number;
+  experienceReward: number;
 }>;
 
 export type WaveDefinition = Readonly<{
@@ -47,6 +48,7 @@ export const FIRST_COMBAT: CombatDefinition = {
     attackDamage: 8,
     attackIntervalSeconds: 1.2,
     stopDistance: 54,
+    experienceReward: 10,
   },
   wave: {
     enemyCount: 24,

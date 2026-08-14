@@ -1,5 +1,6 @@
 import type { CombatDefinition } from '../../content/firstCombat';
 import { ARENA_HEIGHT, ARENA_WIDTH } from '../../shared/constants';
+import { GuardianProgression } from '../progression/GuardianProgression';
 
 export const GUARDIAN_X = ARENA_WIDTH / 2;
 export const GUARDIAN_Y = ARENA_HEIGHT - 82;
@@ -31,6 +32,11 @@ export type CombatSnapshot = Readonly<{
   guardianMaxHealth: number;
   guardianBarrier: number;
   guardianMaxBarrier: number;
+  guardianLevel: number;
+  guardianExperience: number;
+  guardianExperienceForNextLevel: number;
+  guardianTotalExperience: number;
+  guardianMaxLevel: number;
   elapsedSeconds: number;
   spawnedEnemies: number;
   totalEnemies: number;
@@ -50,6 +56,7 @@ export class CombatSimulation {
 
   private guardianHealth: number;
   private guardianBarrier: number;
+  private readonly progression = new GuardianProgression();
   private secondsSinceDamage = BARRIER_RECOVERY_DELAY_SECONDS;
   private elapsedSeconds = 0;
   private spawnedEnemies = 0;
@@ -100,11 +107,17 @@ export class CombatSimulation {
   getSnapshot(): CombatSnapshot {
     let aliveEnemies = 0;
     for (const enemy of this.enemies) if (enemy.active) aliveEnemies += 1;
+    const progression = this.progression.getSnapshot();
     return {
       guardianHealth: this.guardianHealth,
       guardianMaxHealth: this.definition.guardian.maxHealth,
       guardianBarrier: this.guardianBarrier,
       guardianMaxBarrier: this.definition.guardian.maxBarrier,
+      guardianLevel: progression.level,
+      guardianExperience: progression.experience,
+      guardianExperienceForNextLevel: progression.experienceForNextLevel,
+      guardianTotalExperience: progression.totalExperience,
+      guardianMaxLevel: progression.maxLevel,
       elapsedSeconds: this.elapsedSeconds,
       spawnedEnemies: this.spawnedEnemies,
       totalEnemies: this.definition.wave.enemyCount,
@@ -243,6 +256,7 @@ export class CombatSimulation {
         if (enemy.health <= 0) {
           enemy.active = false;
           this.defeatedEnemies += 1;
+          this.progression.addExperience(this.definition.enemy.experienceReward);
         }
         break;
       }
