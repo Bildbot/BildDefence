@@ -87,16 +87,24 @@ export class ArenaScene extends Phaser.Scene {
     if (state.phase === 'paused' && !this.scene.isPaused()) this.scene.pause();
     if (state.phase === 'running' && this.scene.isPaused()) this.scene.resume();
     if (state.phase === 'running' && state.guardian && state.runId !== this.activeRunId) {
-      this.startCombat(state.runId, state.guardian);
+      this.startCombat(state.runId, state.guardian, state.guardianTotalExperience);
     }
     if (state.phase === 'menu') this.hideCombatViews();
   }
 
-  private startCombat(runId: number, guardian: GuardianDefinition): void {
+  private startCombat(
+    runId: number,
+    guardian: GuardianDefinition,
+    guardianTotalExperience: number,
+  ): void {
     this.activeRunId = runId;
     this.fixedStepAccumulator = 0;
     this.snapshotAccumulator = 0;
-    this.simulation = new CombatSimulation({ ...FIRST_COMBAT, guardian }, runId);
+    this.simulation = new CombatSimulation(
+      { ...FIRST_COMBAT, guardian },
+      runId,
+      guardianTotalExperience,
+    );
     this.syncViews();
     this.emitSnapshot();
     this.bridge.emit('guardianPulse', { intensity: 1 });
