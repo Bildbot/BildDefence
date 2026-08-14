@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import { FIRST_COMBAT } from '../../content/firstCombat';
+import { FIRST_COMBAT, type GuardianDefinition } from '../../content/firstCombat';
+import { ARENA_HEIGHT, ARENA_WIDTH } from '../../shared/constants';
+import type { GameBridge } from '../../shared/GameBridge';
 import {
   CombatSimulation,
   ENEMY_RADIUS,
@@ -7,8 +9,6 @@ import {
   GUARDIAN_Y,
   PROJECTILE_RADIUS,
 } from '../combat/CombatSimulation';
-import { ARENA_HEIGHT, ARENA_WIDTH } from '../../shared/constants';
-import type { GameBridge } from '../../shared/GameBridge';
 import type { GameSession } from '../session/GameSession';
 
 const FIXED_STEP_SECONDS = 1 / 60;
@@ -86,16 +86,17 @@ export class ArenaScene extends Phaser.Scene {
     const state = this.session.getSnapshot();
     if (state.phase === 'paused' && !this.scene.isPaused()) this.scene.pause();
     if (state.phase === 'running' && this.scene.isPaused()) this.scene.resume();
-    if (state.phase === 'running' && state.runId !== this.activeRunId)
-      this.startCombat(state.runId);
+    if (state.phase === 'running' && state.guardian && state.runId !== this.activeRunId) {
+      this.startCombat(state.runId, state.guardian);
+    }
     if (state.phase === 'menu') this.hideCombatViews();
   }
 
-  private startCombat(runId: number): void {
+  private startCombat(runId: number, guardian: GuardianDefinition): void {
     this.activeRunId = runId;
     this.fixedStepAccumulator = 0;
     this.snapshotAccumulator = 0;
-    this.simulation = new CombatSimulation(FIRST_COMBAT, runId);
+    this.simulation = new CombatSimulation({ ...FIRST_COMBAT, guardian }, runId);
     this.syncViews();
     this.emitSnapshot();
     this.bridge.emit('guardianPulse', { intensity: 1 });
