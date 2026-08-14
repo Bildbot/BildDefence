@@ -1,5 +1,10 @@
 import { FIRST_COMBAT } from '../../content/firstCombat';
 import {
+  MAX_GUARDIAN_LEVEL,
+  getGuardianLevelForTotalExperience,
+  getTotalExperienceToReachGuardianLevel,
+} from '../../game/progression/GuardianProgression';
+import {
   DEFAULT_GUARDIAN_STAT_UPGRADES,
   GUARDIAN_STAT_UPGRADE_KEYS,
   canUpgradeGuardianStat,
@@ -19,13 +24,24 @@ export type GameSettings = Readonly<{
 export type GameProgression = Readonly<{
   completedRuns: number;
   unspentStatPoints: number;
+  guardianTotalExperience: number;
   guardianStatUpgrades: GuardianStatUpgrades;
 }>;
 
-export type SaveDataV2 = Readonly<{
-  version: 2;
+export type SaveDataV3 = Readonly<{
+  version: 3;
   settings: GameSettings;
   progression: GameProgression;
+}>;
+
+type LegacySaveDataV2 = Readonly<{
+  version: 2;
+  settings: GameSettings;
+  progression: Readonly<{
+    completedRuns: number;
+    unspentStatPoints: number;
+    guardianStatUpgrades: GuardianStatUpgrades;
+  }>;
 }>;
 
 type LegacySaveDataV1 = Readonly<{
@@ -33,6 +49,8 @@ type LegacySaveDataV1 = Readonly<{
   settings: GameSettings;
   progression: Readonly<{ completedRuns: number }>;
 }>;
+
+const MAX_TOTAL_EXPERIENCE = getTotalExperienceToReachGuardianLevel(MAX_GUARDIAN_LEVEL);
 
 export const DEFAULT_SETTINGS: GameSettings = {
   musicVolume: 0.7,
@@ -44,10 +62,11 @@ export const DEFAULT_SETTINGS: GameSettings = {
 export const DEFAULT_PROGRESSION: GameProgression = {
   completedRuns: 0,
   unspentStatPoints: 0,
+  guardianTotalExperience: 0,
   guardianStatUpgrades: DEFAULT_GUARDIAN_STAT_UPGRADES,
 };
 
-export const DEFAULT_SAVE: SaveDataV2 = {
+export const DEFAULT_SAVE: SaveDataV3 = {
   version: SAVE_VERSION,
   settings: DEFAULT_SETTINGS,
   progression: DEFAULT_PROGRESSION,
@@ -58,15 +77,20 @@ export class SaveRepository {
 
   constructor(private readonly storage: StorageAdapter) {}
 
-  async load(): Promise<SaveDataV2> {
+  async load(): Promise<SaveDataV3> {
     const raw = await this.storage.read(SAVE_KEY);
     if (raw === null) return DEFAULT_SAVE;
 
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (isSaveDataV2(parsed)) return parsed;
+      if (isSaveDataV3(parsed)) return parsed;
+      if (isLegacySaveDataV2(parsed)) {
+        const migrated = migrateLegacySaveV2(parsed);
+        await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
       if (isLegacySaveDataV1(parsed)) {
-        const migrated = migrateLegacySave(parsed);
+        const migrated = migrateLegacySaveV1(parsed);
         await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
         return migrated;
       }
@@ -82,17 +106,28 @@ export class SaveRepository {
     await this.mutate((current) => ({ ...current, settings }));
   }
 
-  async completeRun(statPointsEarned: number): Promise<GameProgression> {
-    if (!Number.isInteger(statPointsEarned) || statPointsEarned < 0) {
-      throw new RangeError('Earned stat points must be a non-negative integer');
+  async completeRun(guardianTotalExperience: number): Promise<GameProgression> {
+    if (
+      !Number.isInteger(guardianTotalExperience) ||
+      guardianTotalExperience < 0 ||
+      guardianTotalExperience > MAX_TOTAL_EXPERIENCE
+    ) {
+      throw new RangeError('Guardian experience must be a valid total experience value');
     }
 
     let nextProgression = DEFAULT_PROGRESSION;
     await this.mutate((current) => {
+      const previousExperience = current.progression.guardianTotalExperience;
+      const nextExperience = Math.max(previousExperience, guardianTotalExperience);
+      const previousLevel = getGuardianLevelForTotalExperience(previousExperience);
+      const nextLevel = getGuardianLevelForTotalExperience(nextExperience);
+      const statPointsEarned = Math.max(0, nextLevel - previousLevel);
+
       nextProgression = {
         ...current.progression,
         completedRuns: current.progression.completedRuns + 1,
         unspentStatPoints: current.progression.unspentStatPoints + statPointsEarned,
+        guardianTotalExperience: nextExperience,
       };
       return { ...current, progression: nextProgression };
     });
@@ -127,7 +162,7 @@ export class SaveRepository {
     return nextProgression;
   }
 
-  private async mutate(transform: (current: SaveDataV2) => SaveDataV2): Promise<void> {
+  private async mutate(transform: (current: SaveDataV3) => SaveDataV3): Promise<void> {
     const operation = this.mutationQueue.then(async () => {
       const current = await this.load();
       const next = transform(current);
@@ -138,19 +173,31 @@ export class SaveRepository {
   }
 }
 
-function migrateLegacySave(save: LegacySaveDataV1): SaveDataV2 {
+function migrateLegacySaveV2(save: LegacySaveDataV2): SaveDataV3 {
+  return {
+    version: SAVE_VERSION,
+    settings: save.settings,
+    progression: {
+      ...save.progression,
+      guardianTotalExperience: 0,
+    },
+  };
+}
+
+function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV3 {
   return {
     version: SAVE_VERSION,
     settings: save.settings,
     progression: {
       completedRuns: save.progression.completedRuns,
       unspentStatPoints: 0,
+      guardianTotalExperience: 0,
       guardianStatUpgrades: { ...DEFAULT_GUARDIAN_STAT_UPGRADES },
     },
   };
 }
 
-function isSaveDataV2(value: unknown): value is SaveDataV2 {
+function isSaveDataV3(value: unknown): value is SaveDataV3 {
   if (!isRecord(value) || value.version !== SAVE_VERSION) return false;
   if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
   const { settings, progression } = value;
@@ -158,7 +205,19 @@ function isSaveDataV2(value: unknown): value is SaveDataV2 {
     isSettings(settings) &&
     isNonNegativeInteger(progression.completedRuns) &&
     isNonNegativeInteger(progression.unspentStatPoints) &&
+    isValidTotalExperience(progression.guardianTotalExperience) &&
     isGuardianStatUpgrades(progression.guardianStatUpgrades)
+  );
+}
+
+function isLegacySaveDataV2(value: unknown): value is LegacySaveDataV2 {
+  if (!isRecord(value) || value.version !== 2) return false;
+  if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
+  return (
+    isSettings(value.settings) &&
+    isNonNegativeInteger(value.progression.completedRuns) &&
+    isNonNegativeInteger(value.progression.unspentStatPoints) &&
+    isGuardianStatUpgrades(value.progression.guardianStatUpgrades)
   );
 }
 
@@ -194,4 +253,8 @@ function isVolume(value: unknown): value is number {
 
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isValidTotalExperience(value: unknown): value is number {
+  return isNonNegativeInteger(value) && value <= MAX_TOTAL_EXPERIENCE;
 }
