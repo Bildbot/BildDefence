@@ -50,7 +50,11 @@ export function applyGuardianStatUpgrades(
 ): GuardianDefinition {
   return {
     ...base,
-    maxHealth: applyUpgrade(base.maxHealth, upgrades.maxHealth, GUARDIAN_STAT_UPGRADE_RULES.maxHealth),
+    maxHealth: applyUpgrade(
+      base.maxHealth,
+      upgrades.maxHealth,
+      GUARDIAN_STAT_UPGRADE_RULES.maxHealth,
+    ),
     maxBarrier: applyUpgrade(
       base.maxBarrier,
       upgrades.maxBarrier,
@@ -95,9 +99,15 @@ export function canUpgradeGuardianStat(
   return applyUpgrade(base[stat], upgrades[stat], rule) < rule.maximum;
 }
 
-function applyUpgrade(base: number, count: number, rule: GuardianStatUpgradeRule): number {
+function applyUpgrade(
+  base: number,
+  count: number,
+  rule: GuardianStatUpgradeRule,
+): number {
   const upgraded = base + Math.max(0, Math.floor(count)) * rule.increment;
-  return roundStat(rule.maximum === undefined ? upgraded : Math.min(rule.maximum, upgraded));
+  return roundStat(
+    rule.maximum === undefined ? upgraded : Math.min(rule.maximum, upgraded),
+  );
 }
 
 function roundStat(value: number): number {
