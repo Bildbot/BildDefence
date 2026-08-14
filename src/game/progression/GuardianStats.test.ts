@@ -52,9 +52,7 @@ describe('GuardianStats', () => {
       criticalChance: 0.5,
       criticalMultiplier: 3,
     });
-    expect(
-      canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'armorPercent'),
-    ).toBe(false);
+    expect(canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'armorPercent')).toBe(false);
     expect(canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'damage')).toBe(true);
   });
 
