@@ -56,7 +56,7 @@ export class CombatSimulation {
 
   private guardianHealth: number;
   private guardianBarrier: number;
-  private readonly progression = new GuardianProgression();
+  private readonly progression: GuardianProgression;
   private secondsSinceDamage = BARRIER_RECOVERY_DELAY_SECONDS;
   private elapsedSeconds = 0;
   private spawnedEnemies = 0;
@@ -69,9 +69,11 @@ export class CombatSimulation {
   constructor(
     private readonly definition: CombatDefinition,
     seed: number,
+    initialTotalExperience = 0,
   ) {
     this.guardianHealth = definition.guardian.maxHealth;
     this.guardianBarrier = definition.guardian.maxBarrier;
+    this.progression = new GuardianProgression(initialTotalExperience);
     this.randomState = seed || 1;
     this.enemies = Array.from({ length: definition.wave.enemyCount }, (_, id) => ({
       id,
