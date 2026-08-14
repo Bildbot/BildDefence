@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { FIRST_COMBAT } from '../content/firstCombat';
 import type { CombatSnapshot } from '../game/combat/CombatSimulation';
 import type { GameSession } from '../game/session/GameSession';
 import type { PlatformAdapter, SafeAreaInsets } from '../platform/PlatformAdapter';
@@ -95,9 +96,17 @@ export function App({ session, bridge, platform, saves }: Props) {
                   style={{ width: `${(combat.guardianHealth / combat.guardianMaxHealth) * 100}%` }}
                 />
               </div>
+              <div className="barrier-track" aria-label={strings.barrier}>
+                <div
+                  className="barrier-value"
+                  style={{
+                    width: `${(combat.guardianBarrier / combat.guardianMaxBarrier) * 100}%`,
+                  }}
+                />
+              </div>
               <small>
-                {strings.health}: {combat.guardianHealth} / {combat.guardianMaxHealth} ·{' '}
-                {strings.enemies}: {combat.defeatedEnemies} / {combat.totalEnemies}
+                {strings.health}: {Math.ceil(combat.guardianHealth)} / {combat.guardianMaxHealth} ·{' '}
+                {strings.barrier}: {Math.ceil(combat.guardianBarrier)} / {combat.guardianMaxBarrier}
               </small>
             </div>
             <button
@@ -115,6 +124,34 @@ export function App({ session, bridge, platform, saves }: Props) {
             <p className="eyebrow">{strings.foundation}</p>
             <h1>{strings.title}</h1>
             <p className="subtitle">{strings.subtitle}</p>
+            <section className="guardian-stats" aria-labelledby="guardian-stats-title">
+              <h2 id="guardian-stats-title">Характеристики стража</h2>
+              <dl>
+                <GuardianStat label="Здоровье" value={FIRST_COMBAT.guardian.maxHealth} />
+                <GuardianStat label="Барьер" value={FIRST_COMBAT.guardian.maxBarrier} />
+                <GuardianStat
+                  label="Броня"
+                  value={`${FIRST_COMBAT.guardian.armorPercent * 100}%`}
+                />
+                <GuardianStat
+                  label="Восстановление"
+                  value={`${FIRST_COMBAT.guardian.healthRegenPerSecond}/с`}
+                />
+                <GuardianStat label="Урон" value={FIRST_COMBAT.guardian.damage} />
+                <GuardianStat
+                  label="Скорость атаки"
+                  value={`${FIRST_COMBAT.guardian.attacksPerSecond}/с`}
+                />
+                <GuardianStat
+                  label="Шанс крит. удара"
+                  value={`${FIRST_COMBAT.guardian.criticalChance * 100}%`}
+                />
+                <GuardianStat
+                  label="Крит. множитель"
+                  value={`×${FIRST_COMBAT.guardian.criticalMultiplier}`}
+                />
+              </dl>
+            </section>
             <div className="menu-actions">
               <button className="button primary" type="button" onClick={start}>
                 {strings.start}
@@ -257,6 +294,15 @@ export function App({ session, bridge, platform, saves }: Props) {
         </div>
       )}
     </main>
+  );
+}
+
+function GuardianStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
   );
 }
 

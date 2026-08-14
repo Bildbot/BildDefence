@@ -19,11 +19,12 @@ export const strings = {
   defeatHint: 'Враги прорвались к стражу.',
   restart: 'Повторить забег',
   health: 'Здоровье стража',
+  barrier: 'Барьер',
   enemies: 'Враги',
   time: 'Время',
   music: 'Музыка',
   effects: 'Эффекты',
   vibration: 'Вибрация',
   reducedEffects: 'Сниженные эффекты',
-  foundation: 'Нулевой вертикальный срез',
+  foundation: 'Дом стража',
 } as const;

@@ -29,6 +29,8 @@ export type ProjectileState = {
 export type CombatSnapshot = Readonly<{
   guardianHealth: number;
   guardianMaxHealth: number;
+  guardianBarrier: number;
+  guardianMaxBarrier: number;
   elapsedSeconds: number;
   spawnedEnemies: number;
   totalEnemies: number;
@@ -39,12 +41,16 @@ export type CombatSnapshot = Readonly<{
 
 const MAX_PROJECTILES = 64;
 const SPAWN_MARGIN = 28;
+const BARRIER_RECOVERY_DELAY_SECONDS = 3;
+const BARRIER_RECOVERY_PER_SECOND = 0.2;
 
 export class CombatSimulation {
   readonly enemies: EnemyState[];
   readonly projectiles: ProjectileState[];
 
   private guardianHealth: number;
+  private guardianBarrier: number;
+  private secondsSinceDamage = BARRIER_RECOVERY_DELAY_SECONDS;
   private elapsedSeconds = 0;
   private spawnedEnemies = 0;
   private defeatedEnemies = 0;
@@ -58,6 +64,7 @@ export class CombatSimulation {
     seed: number,
   ) {
     this.guardianHealth = definition.guardian.maxHealth;
+    this.guardianBarrier = definition.guardian.maxBarrier;
     this.randomState = seed || 1;
     this.enemies = Array.from({ length: definition.wave.enemyCount }, (_, id) => ({
       id,
@@ -81,6 +88,7 @@ export class CombatSimulation {
     if (this.result !== null || deltaSeconds <= 0) return;
 
     this.elapsedSeconds += deltaSeconds;
+    this.updateGuardianRecovery(deltaSeconds);
     this.spawnDueEnemies();
     this.updateEnemies(deltaSeconds);
     if (this.result !== null) return;
@@ -95,6 +103,8 @@ export class CombatSimulation {
     return {
       guardianHealth: this.guardianHealth,
       guardianMaxHealth: this.definition.guardian.maxHealth,
+      guardianBarrier: this.guardianBarrier,
+      guardianMaxBarrier: this.definition.guardian.maxBarrier,
       elapsedSeconds: this.elapsedSeconds,
       spawnedEnemies: this.spawnedEnemies,
       totalEnemies: this.definition.wave.enemyCount,
@@ -139,7 +149,7 @@ export class CombatSimulation {
 
       enemy.attackCooldown -= deltaSeconds;
       if (enemy.attackCooldown <= 0) {
-        this.guardianHealth = Math.max(0, this.guardianHealth - this.definition.enemy.attackDamage);
+        this.receiveDamage(this.definition.enemy.attackDamage);
         enemy.attackCooldown += this.definition.enemy.attackIntervalSeconds;
         if (this.guardianHealth === 0) {
           this.result = 'defeat';
@@ -165,8 +175,12 @@ export class CombatSimulation {
     projectile.y = GUARDIAN_Y - 28;
     projectile.velocityX = (dx / distance) * this.definition.guardian.projectileSpeed;
     projectile.velocityY = (dy / distance) * this.definition.guardian.projectileSpeed;
-    projectile.damage = this.definition.guardian.damage;
-    this.fireCooldown += this.definition.guardian.fireIntervalSeconds;
+    projectile.damage =
+      this.definition.guardian.damage *
+      (this.random() < this.definition.guardian.criticalChance
+        ? this.definition.guardian.criticalMultiplier
+        : 1);
+    this.fireCooldown += 1 / this.definition.guardian.attacksPerSecond;
   }
 
   private findPriorityTarget(): EnemyState | null {
@@ -178,6 +192,28 @@ export class CombatSimulation {
       }
     }
     return target;
+  }
+
+  private updateGuardianRecovery(deltaSeconds: number): void {
+    this.secondsSinceDamage += deltaSeconds;
+    this.guardianHealth = Math.min(
+      this.definition.guardian.maxHealth,
+      this.guardianHealth + this.definition.guardian.healthRegenPerSecond * deltaSeconds,
+    );
+    if (this.secondsSinceDamage < BARRIER_RECOVERY_DELAY_SECONDS) return;
+    this.guardianBarrier = Math.min(
+      this.definition.guardian.maxBarrier,
+      this.guardianBarrier +
+        this.definition.guardian.maxBarrier * BARRIER_RECOVERY_PER_SECOND * deltaSeconds,
+    );
+  }
+
+  private receiveDamage(physicalDamage: number): void {
+    this.secondsSinceDamage = 0;
+    const damage = physicalDamage * (1 - this.definition.guardian.armorPercent);
+    const absorbed = Math.min(this.guardianBarrier, damage);
+    this.guardianBarrier -= absorbed;
+    this.guardianHealth = Math.max(0, this.guardianHealth - (damage - absorbed));
   }
 
   private updateProjectiles(deltaSeconds: number): void {

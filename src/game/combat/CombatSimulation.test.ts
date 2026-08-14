@@ -2,8 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { FIRST_COMBAT, type CombatDefinition } from '../../content/firstCombat';
 import { CombatSimulation } from './CombatSimulation';
 
+const guardian = {
+  maxHealth: 100,
+  maxBarrier: 0,
+  armorPercent: 0,
+  healthRegenPerSecond: 0,
+  damage: 100,
+  attacksPerSecond: 10,
+  criticalChance: 0,
+  criticalMultiplier: 1.5,
+  projectileSpeed: 2000,
+};
+
 const fastVictory: CombatDefinition = {
-  guardian: { maxHealth: 100, damage: 100, fireIntervalSeconds: 0.1, projectileSpeed: 2000 },
+  guardian,
   enemy: { maxHealth: 1, speed: 1, attackDamage: 1, attackIntervalSeconds: 1, stopDistance: 10 },
   wave: { enemyCount: 2, spawnIntervalSeconds: 0.1 },
 };
@@ -36,7 +48,7 @@ describe('CombatSimulation', () => {
 
   it('finishes with defeat when a reached enemy drains guardian health', () => {
     const defeat: CombatDefinition = {
-      guardian: { maxHealth: 10, damage: 0, fireIntervalSeconds: 1, projectileSpeed: 1 },
+      guardian: { ...guardian, maxHealth: 10, damage: 0, attacksPerSecond: 1, projectileSpeed: 1 },
       enemy: {
         maxHealth: 10,
         speed: 1000,
@@ -52,6 +64,34 @@ describe('CombatSimulation', () => {
     }
     expect(simulation.getSnapshot().result).toBe('defeat');
     expect(simulation.getSnapshot().guardianHealth).toBe(0);
+  });
+
+  it('applies armor, barrier, health regeneration, and barrier recovery', () => {
+    const defence: CombatDefinition = {
+      guardian: {
+        ...guardian,
+        maxHealth: 100,
+        maxBarrier: 10,
+        armorPercent: 0.5,
+        healthRegenPerSecond: 1,
+        damage: 0,
+      },
+      enemy: {
+        maxHealth: 10,
+        speed: 1000,
+        attackDamage: 40,
+        attackIntervalSeconds: 0.1,
+        stopDistance: 80,
+      },
+      wave: { enemyCount: 1, spawnIntervalSeconds: 1 },
+    };
+    const simulation = new CombatSimulation(defence, 1);
+    simulation.step(1);
+    simulation.step(1);
+    expect(simulation.getSnapshot()).toMatchObject({ guardianHealth: 90, guardianBarrier: 0 });
+    if (simulation.enemies[0]) simulation.enemies[0].active = false;
+    simulation.step(4);
+    expect(simulation.getSnapshot()).toMatchObject({ guardianHealth: 94, guardianBarrier: 8 });
   });
 
   it('keeps the first balanced wave winnable and close to one minute', () => {
