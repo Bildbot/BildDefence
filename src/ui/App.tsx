@@ -467,7 +467,11 @@ export function App({ session, bridge, platform, saves }: Props) {
                 onUpgrade={spendStatPoint}
               />
             </div>
-            <button className="button primary" type="button" onClick={() => setStatsOpen(false)}>
+            <button
+              className="button primary"
+              type="button"
+              onClick={() => setStatsOpen(false)}
+            >
               Закрыть
             </button>
           </section>
