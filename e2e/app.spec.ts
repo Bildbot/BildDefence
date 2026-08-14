@@ -4,8 +4,9 @@ test('starts, pauses, resumes, and exits a run', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'BILD DEFENCE' })).toBeVisible();
   await page.getByRole('button', { name: 'Начать забег' }).click();
-  await expect(page.getByLabel('Здоровье стража')).toBeVisible();
-  await expect(page.getByText(/Здоровье стража: 100 \/ 100/)).toBeVisible();
+  const healthBar = page.getByLabel('Здоровье стража: 100 / 100');
+  await expect(healthBar).toBeVisible();
+  await expect(healthBar).toHaveText('100 / 100');
   await page.getByRole('button', { name: 'Пауза' }).click();
   await expect(page.getByRole('heading', { name: 'Пауза' })).toBeVisible();
   await page.getByRole('button', { name: 'Продолжить' }).click();
