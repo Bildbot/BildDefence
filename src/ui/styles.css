@@ -95,6 +95,43 @@ button {
   backdrop-filter: blur(10px);
 }
 
+.hud-status {
+  flex: 1;
+  min-width: 0;
+  margin-right: 12px;
+}
+.hud-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hud-title-row strong {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.health-track {
+  height: 7px;
+  margin: 7px 0 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #301417;
+}
+.health-value {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #52d98a, #a1f2b8);
+  transition: width 140ms linear;
+}
+.hud small {
+  display: block;
+  overflow: hidden;
+  color: #a8c2ce;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .hud span,
 .hud strong {
   display: block;
@@ -137,6 +174,12 @@ button {
   justify-content: center;
   background: rgba(3, 10, 16, 0.86);
   backdrop-filter: blur(12px);
+}
+.menu-overlay.result-victory {
+  background: rgba(4, 23, 24, 0.9);
+}
+.menu-overlay.result-defeat {
+  background: rgba(27, 8, 12, 0.9);
 }
 .eyebrow {
   margin: 0 0 10px;

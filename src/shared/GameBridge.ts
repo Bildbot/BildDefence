@@ -1,5 +1,8 @@
+import type { CombatSnapshot } from '../game/combat/CombatSimulation';
+
 export type GameBridgeEventMap = {
   guardianPulse: { intensity: number };
+  combatSnapshot: CombatSnapshot;
 };
 
 type Listener<K extends keyof GameBridgeEventMap> = (payload: GameBridgeEventMap[K]) => void;

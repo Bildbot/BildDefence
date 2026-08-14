@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { CombatSnapshot } from '../game/combat/CombatSimulation';
 import type { GameSession } from '../game/session/GameSession';
 import type { PlatformAdapter, SafeAreaInsets } from '../platform/PlatformAdapter';
 import type { GameSettings } from '../services/save/SaveRepository';
@@ -20,6 +21,7 @@ export function App({ session, bridge, platform, saves }: Props) {
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [combat, setCombat] = useState<CombatSnapshot | null>(null);
   const settingsOpenRef = useRef(settingsOpen);
   const leaveConfirmOpenRef = useRef(leaveConfirmOpen);
 
@@ -30,6 +32,8 @@ export function App({ session, bridge, platform, saves }: Props) {
   useEffect(() => {
     leaveConfirmOpenRef.current = leaveConfirmOpen;
   }, [leaveConfirmOpen]);
+
+  useEffect(() => bridge.on('combatSnapshot', setCombat), [bridge]);
 
   useEffect(() => {
     void saves.load().then((save) => setSettings(save.settings));
@@ -78,11 +82,23 @@ export function App({ session, bridge, platform, saves }: Props) {
     <main className="app-shell" data-platform={platform.kind}>
       <section className="game-frame" data-testid="game-frame">
         <GameCanvas session={session} bridge={bridge} />
-        {state.phase !== 'menu' && (
+        {state.phase !== 'menu' && combat && (
           <header className="hud">
-            <div>
-              <span>{strings.wave}</span>
-              <strong>{strings.preparation}</strong>
+            <div className="hud-status">
+              <div className="hud-title-row">
+                <span>{strings.wave}</span>
+                <strong>{formatTime(combat.elapsedSeconds)}</strong>
+              </div>
+              <div className="health-track" aria-label={strings.health}>
+                <div
+                  className="health-value"
+                  style={{ width: `${(combat.guardianHealth / combat.guardianMaxHealth) * 100}%` }}
+                />
+              </div>
+              <small>
+                {strings.health}: {combat.guardianHealth} / {combat.guardianMaxHealth} ·{' '}
+                {strings.enemies}: {combat.defeatedEnemies} / {combat.totalEnemies}
+              </small>
             </div>
             <button
               className="icon-button"
@@ -143,6 +159,30 @@ export function App({ session, bridge, platform, saves }: Props) {
             </div>
           </div>
         )}
+        {state.phase === 'finished' && (
+          <div
+            className={`menu-overlay compact result-${state.result ?? 'defeat'}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="result-title"
+          >
+            <p className="eyebrow">ЗАБЕГ ЗАВЕРШЁН</p>
+            <h2 id="result-title">
+              {state.result === 'victory' ? strings.victory : strings.defeat}
+            </h2>
+            <p className="subtitle">
+              {state.result === 'victory' ? strings.victoryHint : strings.defeatHint}
+            </p>
+            <div className="menu-actions">
+              <button className="button primary" type="button" onClick={start}>
+                {strings.restart}
+              </button>
+              <button className="button ghost" type="button" onClick={() => session.exit()}>
+                {strings.exit}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
       <aside className="desktop-panel" aria-label="Информация о забеге">
         <p className="eyebrow">СТАТУС</p>
@@ -160,6 +200,20 @@ export function App({ session, bridge, platform, saves }: Props) {
             <dt>Забег</dt>
             <dd>#{state.runId}</dd>
           </div>
+          {state.phase !== 'menu' && combat && (
+            <>
+              <div>
+                <dt>{strings.health}</dt>
+                <dd>
+                  {combat.guardianHealth} / {combat.guardianMaxHealth}
+                </dd>
+              </div>
+              <div>
+                <dt>{strings.enemies}</dt>
+                <dd>{combat.aliveEnemies} на поле</dd>
+              </div>
+            </>
+          )}
         </dl>
       </aside>
       {settingsOpen && (
@@ -204,4 +258,10 @@ export function App({ session, bridge, platform, saves }: Props) {
       )}
     </main>
   );
+}
+
+function formatTime(seconds: number): string {
+  const rounded = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(rounded / 60);
+  return `${minutes}:${String(rounded % 60).padStart(2, '0')}`;
 }
