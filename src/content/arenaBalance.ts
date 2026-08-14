@@ -1,8 +1,4 @@
-import {
-  FIRST_COMBAT,
-  type CombatDefinition,
-  type GuardianDefinition,
-} from './firstCombat';
+import { FIRST_COMBAT, type CombatDefinition, type GuardianDefinition } from './firstCombat';
 import {
   MAX_GUARDIAN_LEVEL,
   getExperienceForNextGuardianLevel,
@@ -66,8 +62,7 @@ export function getArenaEnemyCount(level: number): number {
   const progress = (level - 1) / (MAX_ARENA_LEVEL - 1);
   return Math.round(
     FIRST_COMBAT.wave.enemyCount +
-      (MAX_ARENA_ENEMIES - FIRST_COMBAT.wave.enemyCount) *
-        progress ** ENEMY_COUNT_GROWTH_EXPONENT,
+      (MAX_ARENA_ENEMIES - FIRST_COMBAT.wave.enemyCount) * progress ** ENEMY_COUNT_GROWTH_EXPONENT,
   );
 }
 
@@ -81,8 +76,7 @@ export function getArenaEnemyMaxHealth(level: number): number {
 export function getArenaEnemyAttackDamage(level: number): number {
   assertArenaLevel(level);
   return roundToTenth(
-    FIRST_COMBAT.enemy.attackDamage *
-      getPiecewiseGrowthMultiplier(level, 0.008, 0.012, 0.015),
+    FIRST_COMBAT.enemy.attackDamage * getPiecewiseGrowthMultiplier(level, 0.008, 0.012, 0.015),
   );
 }
 
