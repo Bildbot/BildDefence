@@ -97,7 +97,7 @@ export function App({ session, bridge, platform, saves }: Props) {
   };
 
   const start = () => {
-    session.start(guardianStats);
+    session.start(guardianStats, progression.guardianTotalExperience);
     if (settings.vibration) void platform.haptic();
   };
 
@@ -105,11 +105,11 @@ export function App({ session, bridge, platform, saves }: Props) {
     if (settlingRun || state.phase !== 'finished') return;
     setSettlingRun(true);
     try {
-      const earnedPoints = Math.max(0, (combat?.guardianLevel ?? 1) - 1);
-      const nextProgression = await saves.completeRun(earnedPoints);
+      const finalExperience = combat?.guardianTotalExperience ?? progression.guardianTotalExperience;
+      const nextProgression = await saves.completeRun(finalExperience);
       setProgression(nextProgression);
       if (action === 'restart') {
-        session.start(guardianStats);
+        session.start(guardianStats, nextProgression.guardianTotalExperience);
         if (settings.vibration) void platform.haptic();
       } else {
         session.exit();
