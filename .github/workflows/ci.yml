@@ -21,8 +21,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec prettier src/ui/App.tsx --write
-      - run: git diff -- src/ui/App.tsx
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
