@@ -109,10 +109,21 @@ button {
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
+.hud-meter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px;
+  align-items: center;
+  gap: 8px;
+}
+.hud-title-row + .hud-meter-row {
+  margin-top: 6px;
+}
+.hud-meter-row + .hud-meter-row {
+  margin-top: 4px;
+}
 .health-track {
   position: relative;
   height: 14px;
-  margin: 6px 0 4px;
   overflow: hidden;
   border-radius: 999px;
   background: #301417;
@@ -126,7 +137,6 @@ button {
 .barrier-track {
   position: relative;
   height: 10px;
-  margin: 0 0 4px;
   overflow: hidden;
   border-radius: 999px;
   background: #102b3d;
@@ -174,23 +184,16 @@ button {
   font-size: 14px;
 }
 .hud .bar-label {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: grid;
-  place-items: center;
   margin: 0;
-  color: #041117;
-  font-size: 8px;
+  color: #dff8ff;
+  font-size: 9px;
   font-weight: 800;
   line-height: 1;
+  letter-spacing: 0;
+  text-align: right;
+  text-transform: none;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px rgba(255, 255, 255, 0.28);
-}
-.hud .barrier-track .bar-label,
-.hud .experience-track .bar-label {
-  color: #dff8ff;
-  text-shadow: 0 1px rgba(0, 0, 0, 0.45);
 }
 
 .icon-button {
