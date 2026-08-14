@@ -247,7 +247,6 @@ export function App({ session, bridge, platform, saves }: Props) {
                 onClick={() => setStatsOpen(true)}
               >
                 Характеристики
-                {progression.unspentStatPoints > 0 && ` (+${progression.unspentStatPoints})`}
               </button>
               <button
                 className="button secondary"
@@ -407,7 +406,7 @@ export function App({ session, bridge, platform, saves }: Props) {
             <h2 id="guardian-stats-title">
               Характеристики стража
               {progression.unspentStatPoints > 0 && (
-                <span className="stat-points-badge"> +{progression.unspentStatPoints}</span>
+                <span className="stat-points-badge">+{progression.unspentStatPoints}</span>
               )}
             </h2>
             <div className="guardian-stats-grid">
