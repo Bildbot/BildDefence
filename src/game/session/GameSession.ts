@@ -1,14 +1,17 @@
+import type { GuardianDefinition } from '../../content/firstCombat';
+
 export type GamePhase = 'menu' | 'running' | 'paused' | 'finished';
 
 export type GameSessionState = Readonly<{
   phase: GamePhase;
   runId: number;
   result: 'victory' | 'defeat' | null;
+  guardian: GuardianDefinition | null;
 }>;
 
 type SessionListener = () => void;
 
-const INITIAL_STATE: GameSessionState = { phase: 'menu', runId: 0, result: null };
+const INITIAL_STATE: GameSessionState = { phase: 'menu', runId: 0, result: null, guardian: null };
 
 export class GameSession {
   private state: GameSessionState = INITIAL_STATE;
@@ -21,8 +24,13 @@ export class GameSession {
     return () => this.listeners.delete(listener);
   };
 
-  start(): void {
-    this.setState({ phase: 'running', runId: this.state.runId + 1, result: null });
+  start(guardian: GuardianDefinition): void {
+    this.setState({
+      phase: 'running',
+      runId: this.state.runId + 1,
+      result: null,
+      guardian,
+    });
   }
 
   pause(): void {
@@ -40,7 +48,7 @@ export class GameSession {
   }
 
   exit(): void {
-    this.setState({ ...this.state, phase: 'menu', result: null });
+    this.setState({ ...this.state, phase: 'menu', result: null, guardian: null });
   }
 
   private setState(nextState: GameSessionState): void {
