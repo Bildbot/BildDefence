@@ -3,17 +3,18 @@ import { FIRST_COMBAT } from '../../content/firstCombat';
 import { GameSession } from './GameSession';
 
 describe('GameSession', () => {
-  it('follows the supported run lifecycle and carries guardian stats into the run', () => {
+  it('follows the supported run lifecycle and carries guardian state into the run', () => {
     const session = new GameSession();
     const listener = vi.fn();
     session.subscribe(listener);
 
-    session.start(FIRST_COMBAT.guardian);
+    session.start(FIRST_COMBAT.guardian, 300);
     expect(session.getSnapshot()).toEqual({
       phase: 'running',
       runId: 1,
       result: null,
       guardian: FIRST_COMBAT.guardian,
+      guardianTotalExperience: 300,
     });
     session.pause();
     expect(session.getSnapshot().phase).toBe('paused');
@@ -24,6 +25,7 @@ describe('GameSession', () => {
       runId: 1,
       result: 'victory',
       guardian: FIRST_COMBAT.guardian,
+      guardianTotalExperience: 300,
     });
     session.exit();
     expect(session.getSnapshot()).toEqual({
@@ -31,6 +33,7 @@ describe('GameSession', () => {
       runId: 1,
       result: null,
       guardian: null,
+      guardianTotalExperience: 0,
     });
     expect(listener).toHaveBeenCalledTimes(5);
   });
@@ -45,6 +48,7 @@ describe('GameSession', () => {
       runId: 0,
       result: null,
       guardian: null,
+      guardianTotalExperience: 0,
     });
   });
 });
