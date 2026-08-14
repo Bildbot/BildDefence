@@ -7,11 +7,18 @@ export type GameSessionState = Readonly<{
   runId: number;
   result: 'victory' | 'defeat' | null;
   guardian: GuardianDefinition | null;
+  guardianTotalExperience: number;
 }>;
 
 type SessionListener = () => void;
 
-const INITIAL_STATE: GameSessionState = { phase: 'menu', runId: 0, result: null, guardian: null };
+const INITIAL_STATE: GameSessionState = {
+  phase: 'menu',
+  runId: 0,
+  result: null,
+  guardian: null,
+  guardianTotalExperience: 0,
+};
 
 export class GameSession {
   private state: GameSessionState = INITIAL_STATE;
@@ -24,12 +31,13 @@ export class GameSession {
     return () => this.listeners.delete(listener);
   };
 
-  start(guardian: GuardianDefinition): void {
+  start(guardian: GuardianDefinition, guardianTotalExperience = 0): void {
     this.setState({
       phase: 'running',
       runId: this.state.runId + 1,
       result: null,
       guardian,
+      guardianTotalExperience,
     });
   }
 
@@ -48,7 +56,13 @@ export class GameSession {
   }
 
   exit(): void {
-    this.setState({ ...this.state, phase: 'menu', result: null, guardian: null });
+    this.setState({
+      ...this.state,
+      phase: 'menu',
+      result: null,
+      guardian: null,
+      guardianTotalExperience: 0,
+    });
   }
 
   private setState(nextState: GameSessionState): void {
