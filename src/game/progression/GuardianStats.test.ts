@@ -52,15 +52,15 @@ describe('GuardianStats', () => {
       criticalChance: 0.5,
       criticalMultiplier: 3,
     });
-    expect(canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'armorPercent')).toBe(
-      false,
-    );
+    expect(
+      canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'armorPercent'),
+    ).toBe(false);
     expect(canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'damage')).toBe(true);
   });
 
   it('keeps the base guardian unchanged with zero upgrades', () => {
-    expect(applyGuardianStatUpgrades(FIRST_COMBAT.guardian, DEFAULT_GUARDIAN_STAT_UPGRADES)).toEqual(
-      FIRST_COMBAT.guardian,
-    );
+    expect(
+      applyGuardianStatUpgrades(FIRST_COMBAT.guardian, DEFAULT_GUARDIAN_STAT_UPGRADES),
+    ).toEqual(FIRST_COMBAT.guardian);
   });
 });
