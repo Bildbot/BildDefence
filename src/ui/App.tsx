@@ -241,11 +241,7 @@ export function App({ session, bridge, platform, saves }: Props) {
               <button className="button primary" type="button" onClick={start}>
                 {strings.start}
               </button>
-              <button
-                className="button secondary"
-                type="button"
-                onClick={() => setStatsOpen(true)}
-              >
+              <button className="button secondary" type="button" onClick={() => setStatsOpen(true)}>
                 Характеристики
               </button>
               <button
@@ -467,11 +463,7 @@ export function App({ session, bridge, platform, saves }: Props) {
                 onUpgrade={spendStatPoint}
               />
             </div>
-            <button
-              className="button primary"
-              type="button"
-              onClick={() => setStatsOpen(false)}
-            >
+            <button className="button primary" type="button" onClick={() => setStatsOpen(false)}>
               Закрыть
             </button>
           </section>
