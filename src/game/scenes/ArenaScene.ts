@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
-import { FIRST_COMBAT, type GuardianDefinition } from '../../content/firstCombat';
+import {
+  MAX_ARENA_ENEMIES,
+  createArenaCombatDefinition,
+} from '../../content/arenaBalance';
+import type { GuardianDefinition } from '../../content/firstCombat';
 import { ARENA_HEIGHT, ARENA_WIDTH } from '../../shared/constants';
 import type { GameBridge } from '../../shared/GameBridge';
 import {
@@ -86,8 +90,18 @@ export class ArenaScene extends Phaser.Scene {
     const state = this.session.getSnapshot();
     if (state.phase === 'paused' && !this.scene.isPaused()) this.scene.pause();
     if (state.phase === 'running' && this.scene.isPaused()) this.scene.resume();
-    if (state.phase === 'running' && state.guardian && state.runId !== this.activeRunId) {
-      this.startCombat(state.runId, state.guardian, state.guardianTotalExperience);
+    if (
+      state.phase === 'running' &&
+      state.guardian &&
+      state.arenaLevel !== null &&
+      state.runId !== this.activeRunId
+    ) {
+      this.startCombat(
+        state.runId,
+        state.guardian,
+        state.guardianTotalExperience,
+        state.arenaLevel,
+      );
     }
     if (state.phase === 'menu') this.hideCombatViews();
   }
@@ -96,12 +110,13 @@ export class ArenaScene extends Phaser.Scene {
     runId: number,
     guardian: GuardianDefinition,
     guardianTotalExperience: number,
+    arenaLevel: number,
   ): void {
     this.activeRunId = runId;
     this.fixedStepAccumulator = 0;
     this.snapshotAccumulator = 0;
     this.simulation = new CombatSimulation(
-      { ...FIRST_COMBAT, guardian },
+      createArenaCombatDefinition(arenaLevel, guardian),
       runId,
       guardianTotalExperience,
     );
@@ -111,7 +126,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private createPools(): void {
-    for (let index = 0; index < FIRST_COMBAT.wave.enemyCount; index += 1) {
+    for (let index = 0; index < MAX_ARENA_ENEMIES; index += 1) {
       const body = this.add.circle(0, 0, ENEMY_RADIUS, 0xff6f68).setVisible(false);
       body.setStrokeStyle(3, 0xffc0b9, 0.75);
       const healthBack = this.add.rectangle(0, 0, 25, 4, 0x22090b).setVisible(false);
@@ -134,7 +149,13 @@ export class ArenaScene extends Phaser.Scene {
     for (let index = 0; index < this.enemyViews.length; index += 1) {
       const view = this.enemyViews[index];
       const enemy = this.simulation.enemies[index];
-      if (!view || !enemy) continue;
+      if (!view) continue;
+      if (!enemy) {
+        view.body.setVisible(false);
+        view.healthBack.setVisible(false);
+        view.healthFill.setVisible(false);
+        continue;
+      }
       view.body.setVisible(enemy.active);
       view.healthBack.setVisible(enemy.active);
       view.healthFill.setVisible(enemy.active);
@@ -142,7 +163,7 @@ export class ArenaScene extends Phaser.Scene {
       view.body.setPosition(enemy.x, enemy.y);
       view.healthBack.setPosition(enemy.x, enemy.y - 19);
       view.healthFill.setPosition(enemy.x - 12.5, enemy.y - 19);
-      view.healthFill.width = 25 * Math.max(0, enemy.health / FIRST_COMBAT.enemy.maxHealth);
+      view.healthFill.width = 25 * Math.max(0, enemy.health / enemy.maxHealth);
     }
 
     for (let index = 0; index < this.projectileViews.length; index += 1) {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { MAX_ARENA_LEVEL, getArenaBalance } from '../content/arenaBalance';
 import { FIRST_COMBAT } from '../content/firstCombat';
 import type { CombatSnapshot } from '../game/combat/CombatSimulation';
 import {
@@ -32,6 +33,7 @@ export function App({ session, bridge, platform, saves }: Props) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
   const [progression, setProgression] = useState<GameProgression>(DEFAULT_PROGRESSION);
+  const [selectedArena, setSelectedArena] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [combat, setCombat] = useState<CombatSnapshot | null>(null);
@@ -59,6 +61,7 @@ export function App({ session, bridge, platform, saves }: Props) {
     void saves.load().then((save) => {
       setSettings(save.settings);
       setProgression(save.progression);
+      setSelectedArena(save.progression.maxUnlockedArena);
     });
     void platform.ready();
     const stopLifecycle = platform.onLifecycleChange((lifecycle) => {
@@ -97,20 +100,25 @@ export function App({ session, bridge, platform, saves }: Props) {
   };
 
   const start = () => {
-    session.start(guardianStats, progression.guardianTotalExperience);
+    session.start(guardianStats, progression.guardianTotalExperience, selectedArena);
     if (settings.vibration) void platform.haptic();
   };
 
   const settleFinishedRun = async (action: FinishedAction) => {
-    if (settlingRun || state.phase !== 'finished') return;
+    if (settlingRun || state.phase !== 'finished' || state.result === null) return;
     setSettlingRun(true);
     try {
       const finalExperience =
         combat?.guardianTotalExperience ?? progression.guardianTotalExperience;
-      const nextProgression = await saves.completeRun(finalExperience);
+      const arenaLevel = combat?.arenaLevel ?? state.arenaLevel ?? selectedArena;
+      const nextProgression = await saves.settleRun({
+        arenaLevel,
+        result: state.result,
+        guardianTotalExperience: finalExperience,
+      });
       setProgression(nextProgression);
       if (action === 'restart') {
-        session.start(guardianStats, nextProgression.guardianTotalExperience);
+        session.start(guardianStats, nextProgression.guardianTotalExperience, arenaLevel);
         if (settings.vibration) void platform.haptic();
       } else {
         session.exit();
@@ -152,7 +160,7 @@ export function App({ session, bridge, platform, saves }: Props) {
           <header className="hud">
             <div className="hud-status">
               <div className="hud-title-row">
-                <span>{strings.wave}</span>
+                <span>Арена {combat.arenaLevel}</span>
                 <strong>
                   Ур. {combat.guardianLevel} · {formatTime(combat.elapsedSeconds)}
                 </strong>
@@ -217,6 +225,11 @@ export function App({ session, bridge, platform, saves }: Props) {
             <p className="eyebrow">{strings.foundation}</p>
             <h1>{strings.title}</h1>
             <p className="subtitle">{strings.subtitle}</p>
+            <ArenaSelector
+              selectedArena={selectedArena}
+              maxUnlockedArena={progression.maxUnlockedArena}
+              onChange={setSelectedArena}
+            />
             <section className="guardian-stats" aria-labelledby="guardian-stats-title">
               <h2 id="guardian-stats-title">
                 Характеристики стража
@@ -378,6 +391,14 @@ export function App({ session, bridge, platform, saves }: Props) {
             <dt>Забег</dt>
             <dd>#{state.runId}</dd>
           </div>
+          {state.phase === 'menu' && (
+            <div>
+              <dt>Открыто арен</dt>
+              <dd>
+                {progression.maxUnlockedArena} / {MAX_ARENA_LEVEL}
+              </dd>
+            </div>
+          )}
           {state.phase === 'menu' && progression.unspentStatPoints > 0 && (
             <div>
               <dt>Очки характеристик</dt>
@@ -386,6 +407,10 @@ export function App({ session, bridge, platform, saves }: Props) {
           )}
           {state.phase !== 'menu' && combat && (
             <>
+              <div>
+                <dt>Арена</dt>
+                <dd>{combat.arenaLevel}</dd>
+              </div>
               <div>
                 <dt>Уровень</dt>
                 <dd>
@@ -455,6 +480,64 @@ export function App({ session, bridge, platform, saves }: Props) {
         </div>
       )}
     </main>
+  );
+}
+
+type ArenaSelectorProps = {
+  selectedArena: number;
+  maxUnlockedArena: number;
+  onChange: (arenaLevel: number) => void;
+};
+
+function ArenaSelector({ selectedArena, maxUnlockedArena, onChange }: ArenaSelectorProps) {
+  const balance = getArenaBalance(selectedArena);
+  const nextLockedArena = Math.min(MAX_ARENA_LEVEL, maxUnlockedArena + 1);
+  const arenaOptions = Array.from({ length: maxUnlockedArena }, (_, index) => index + 1);
+
+  return (
+    <section className="arena-selector" aria-label="Выбор уровня арены">
+      <div className="arena-selector-copy">
+        <strong>Уровень арены</strong>
+        <span>
+          Враги ур. {balance.enemyLevel} · {balance.enemyCount} шт.
+        </span>
+      </div>
+      <div className="arena-picker">
+        <button
+          className="arena-step-button"
+          type="button"
+          disabled={selectedArena <= 1}
+          aria-label="Предыдущая арена"
+          onClick={() => onChange(Math.max(1, selectedArena - 1))}
+        >
+          −
+        </button>
+        <select
+          className="arena-select"
+          aria-label="Уровень арены"
+          value={selectedArena}
+          onChange={(event) => onChange(Number(event.target.value))}
+        >
+          {arenaOptions.map((arenaLevel) => (
+            <option key={arenaLevel} value={arenaLevel}>
+              Арена {arenaLevel}
+            </option>
+          ))}
+        </select>
+        <button
+          className="arena-step-button"
+          type="button"
+          disabled={selectedArena >= maxUnlockedArena}
+          aria-label="Следующая арена"
+          onClick={() => onChange(Math.min(maxUnlockedArena, selectedArena + 1))}
+        >
+          +
+        </button>
+      </div>
+      {maxUnlockedArena < MAX_ARENA_LEVEL && (
+        <span className="arena-locked">Арена {nextLockedArena} · закрыта</span>
+      )}
+    </section>
   );
 }
 

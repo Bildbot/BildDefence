@@ -15,8 +15,10 @@ const guardian = {
 };
 
 const fastVictory: CombatDefinition = {
+  arenaLevel: 1,
   guardian,
   enemy: {
+    level: 1,
     maxHealth: 1,
     speed: 1,
     attackDamage: 1,
@@ -55,53 +57,50 @@ describe('CombatSimulation', () => {
 
   it('awards experience for defeated enemies and levels the guardian', () => {
     const experienceCombat: CombatDefinition = {
-      guardian,
-      enemy: {
-        maxHealth: 1,
-        speed: 1,
-        attackDamage: 1,
-        attackIntervalSeconds: 1,
-        stopDistance: 10,
-        experienceReward: 60,
-      },
-      wave: { enemyCount: 2, spawnIntervalSeconds: 0.1 },
+      ...fastVictory,
+      enemy: { ...fastVictory.enemy, experienceReward: 60 },
     };
     const simulation = new CombatSimulation(experienceCombat, 1);
     for (let index = 0; index < 180 && simulation.getSnapshot().result === null; index += 1) {
       simulation.step(1 / 60);
     }
     expect(simulation.getSnapshot()).toMatchObject({
+      arenaLevel: 1,
       defeatedEnemies: 2,
       guardianLevel: 2,
       guardianExperience: 20,
       guardianExperienceForNextLevel: 348,
       guardianTotalExperience: 120,
-      guardianMaxLevel: 50,
+      guardianMaxLevel: 100,
     });
   });
 
-  it('continues combat progression from saved total experience', () => {
-    const simulation = new CombatSimulation(fastVictory, 1, 300);
+  it('starts from persistent experience and applies the lower-level enemy penalty', () => {
+    const lowArena: CombatDefinition = {
+      ...fastVictory,
+      enemy: { ...fastVictory.enemy, level: 1, experienceReward: 10 },
+    };
+    const simulation = new CombatSimulation(lowArena, 1, 500);
     for (let index = 0; index < 180 && simulation.getSnapshot().result === null; index += 1) {
       simulation.step(1 / 60);
     }
     expect(simulation.getSnapshot()).toMatchObject({
-      guardianLevel: 2,
-      guardianExperience: 220,
-      guardianTotalExperience: 320,
+      guardianLevel: 3,
+      guardianTotalExperience: 516,
     });
   });
 
   it('finishes with defeat when a reached enemy drains guardian health', () => {
     const defeat: CombatDefinition = {
+      ...fastVictory,
       guardian: { ...guardian, maxHealth: 10, damage: 0, attacksPerSecond: 1, projectileSpeed: 1 },
       enemy: {
+        ...fastVictory.enemy,
         maxHealth: 10,
         speed: 1000,
         attackDamage: 10,
         attackIntervalSeconds: 0.1,
         stopDistance: 80,
-        experienceReward: 10,
       },
       wave: { enemyCount: 1, spawnIntervalSeconds: 1 },
     };
@@ -115,6 +114,7 @@ describe('CombatSimulation', () => {
 
   it('applies armor, barrier, health regeneration, and barrier recovery', () => {
     const defence: CombatDefinition = {
+      ...fastVictory,
       guardian: {
         ...guardian,
         maxHealth: 100,
@@ -124,12 +124,12 @@ describe('CombatSimulation', () => {
         damage: 0,
       },
       enemy: {
+        ...fastVictory.enemy,
         maxHealth: 10,
         speed: 1000,
         attackDamage: 40,
         attackIntervalSeconds: 0.1,
         stopDistance: 80,
-        experienceReward: 10,
       },
       wave: { enemyCount: 1, spawnIntervalSeconds: 1 },
     };
@@ -142,7 +142,7 @@ describe('CombatSimulation', () => {
     expect(simulation.getSnapshot()).toMatchObject({ guardianHealth: 94, guardianBarrier: 8 });
   });
 
-  it('keeps the first balanced wave winnable and close to one minute', () => {
+  it('keeps the first balanced arena winnable and close to one minute', () => {
     const simulation = new CombatSimulation(FIRST_COMBAT, 1);
     for (let index = 0; index < 60 * 90 && simulation.getSnapshot().result === null; index += 1) {
       simulation.step(1 / 60);
@@ -152,8 +152,8 @@ describe('CombatSimulation', () => {
     expect(snapshot.guardianHealth).toBeGreaterThan(0);
     expect(snapshot.elapsedSeconds).toBeGreaterThanOrEqual(45);
     expect(snapshot.elapsedSeconds).toBeLessThanOrEqual(75);
-    expect(snapshot.guardianLevel).toBe(2);
-    expect(snapshot.guardianExperience).toBe(140);
-    expect(snapshot.guardianTotalExperience).toBe(240);
+    expect(snapshot.guardianLevel).toBe(1);
+    expect(snapshot.guardianExperience).toBe(24);
+    expect(snapshot.guardianTotalExperience).toBe(24);
   });
 });

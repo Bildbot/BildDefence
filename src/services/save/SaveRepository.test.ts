@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getTotalExperienceToReachGuardianLevel } from '../../game/progression/GuardianProgression';
 import { SAVE_KEY } from '../../shared/constants';
 import type { StorageAdapter } from '../storage/StorageAdapter';
 import { DEFAULT_SAVE, SaveRepository } from './SaveRepository';
@@ -30,29 +31,27 @@ describe('SaveRepository', () => {
   it('persists settings without losing progression', async () => {
     const storage = new MemoryStorage();
     const repository = new SaveRepository(storage);
-    await repository.completeRun(448);
+    await repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 448 });
     await repository.saveSettings({ ...DEFAULT_SAVE.settings, vibration: false });
     const stored = JSON.parse(storage.values.get(SAVE_KEY) ?? '{}') as typeof DEFAULT_SAVE;
     expect(stored.settings.vibration).toBe(false);
     expect(stored.progression.unspentStatPoints).toBe(2);
     expect(stored.progression.completedRuns).toBe(1);
-    expect(stored.progression.guardianTotalExperience).toBe(448);
+    expect(stored.progression.maxUnlockedArena).toBe(2);
   });
 
-  it('migrates the version 2 save schema and keeps previous progression', async () => {
+  it('migrates the previous save schema and starts arena progression at one', async () => {
     const storage = new MemoryStorage();
     storage.values.set(
       SAVE_KEY,
       JSON.stringify({
-        version: 2,
+        version: 3,
         settings: { ...DEFAULT_SAVE.settings, vibration: false },
         progression: {
           completedRuns: 7,
-          unspentStatPoints: 3,
-          guardianStatUpgrades: {
-            ...DEFAULT_SAVE.progression.guardianStatUpgrades,
-            damage: 2,
-          },
+          unspentStatPoints: 2,
+          guardianTotalExperience: 500,
+          guardianStatUpgrades: DEFAULT_SAVE.progression.guardianStatUpgrades,
         },
       }),
     );
@@ -65,64 +64,70 @@ describe('SaveRepository', () => {
       progression: {
         ...DEFAULT_SAVE.progression,
         completedRuns: 7,
-        unspentStatPoints: 3,
-        guardianStatUpgrades: {
-          ...DEFAULT_SAVE.progression.guardianStatUpgrades,
-          damage: 2,
-        },
+        unspentStatPoints: 2,
+        guardianTotalExperience: 500,
       },
     });
     expect(JSON.parse(storage.values.get(SAVE_KEY) ?? '{}')).toEqual(migrated);
   });
 
-  it('migrates the version 1 save schema without losing settings or completed runs', async () => {
+  it('persists total experience and only awards points for newly reached levels', async () => {
+    const repository = new SaveRepository(new MemoryStorage());
+    await expect(
+      repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 500 }),
+    ).resolves.toMatchObject({
+      completedRuns: 1,
+      unspentStatPoints: 2,
+      guardianTotalExperience: 500,
+    });
+    await expect(
+      repository.settleRun({ arenaLevel: 2, result: 'victory', guardianTotalExperience: 600 }),
+    ).resolves.toMatchObject({
+      completedRuns: 2,
+      unspentStatPoints: 2,
+      guardianTotalExperience: 600,
+    });
+  });
+
+  it('unlocks only the next arena after victory and does not unlock on defeat', async () => {
+    const repository = new SaveRepository(new MemoryStorage());
+    await expect(
+      repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 24 }),
+    ).resolves.toMatchObject({ maxUnlockedArena: 2 });
+    await expect(
+      repository.settleRun({ arenaLevel: 2, result: 'defeat', guardianTotalExperience: 30 }),
+    ).resolves.toMatchObject({ maxUnlockedArena: 2 });
+  });
+
+  it('applies the death penalty after level 30 without dropping a level', async () => {
     const storage = new MemoryStorage();
+    const level31Start = getTotalExperienceToReachGuardianLevel(31);
     storage.values.set(
       SAVE_KEY,
       JSON.stringify({
-        version: 1,
-        settings: { ...DEFAULT_SAVE.settings, vibration: false },
-        progression: { completedRuns: 7 },
+        ...DEFAULT_SAVE,
+        progression: {
+          ...DEFAULT_SAVE.progression,
+          guardianTotalExperience: level31Start + 10000,
+        },
       }),
     );
     const repository = new SaveRepository(storage);
-    const migrated = await repository.load();
+    const finalExperience = level31Start + 12000;
+    const progression = await repository.settleRun({
+      arenaLevel: 1,
+      result: 'defeat',
+      guardianTotalExperience: finalExperience,
+    });
 
-    expect(migrated).toEqual({
-      ...DEFAULT_SAVE,
-      settings: { ...DEFAULT_SAVE.settings, vibration: false },
-      progression: { ...DEFAULT_SAVE.progression, completedRuns: 7 },
-    });
-    expect(JSON.parse(storage.values.get(SAVE_KEY) ?? '{}')).toEqual(migrated);
-  });
-
-  it('stores total experience and only awards points for newly reached levels', async () => {
-    const repository = new SaveRepository(new MemoryStorage());
-    await expect(repository.completeRun(300)).resolves.toMatchObject({
-      completedRuns: 1,
-      guardianTotalExperience: 300,
-      unspentStatPoints: 1,
-    });
-    await expect(repository.completeRun(540)).resolves.toMatchObject({
-      completedRuns: 2,
-      guardianTotalExperience: 540,
-      unspentStatPoints: 2,
-    });
-  });
-
-  it('never rolls saved experience backwards', async () => {
-    const repository = new SaveRepository(new MemoryStorage());
-    await repository.completeRun(540);
-    await expect(repository.completeRun(300)).resolves.toMatchObject({
-      completedRuns: 2,
-      guardianTotalExperience: 540,
-      unspentStatPoints: 2,
-    });
+    expect(progression.guardianTotalExperience).toBe(
+      Math.max(level31Start, Math.floor(finalExperience * 0.9)),
+    );
   });
 
   it('spends a point on the selected guardian stat', async () => {
     const repository = new SaveRepository(new MemoryStorage());
-    await repository.completeRun(448);
+    await repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 448 });
     const progression = await repository.spendGuardianStatPoint('damage');
     expect(progression.unspentStatPoints).toBe(1);
     expect(progression.guardianStatUpgrades.damage).toBe(1);

@@ -1,4 +1,6 @@
-export const MAX_GUARDIAN_LEVEL = 50;
+export const MAX_GUARDIAN_LEVEL = 100;
+export const DEATH_EXPERIENCE_PENALTY_START_LEVEL = 31;
+export const DEATH_EXPERIENCE_PENALTY = 0.1;
 
 const EXPERIENCE_CURVE_BASE = 100;
 const EXPERIENCE_CURVE_EXPONENT = 1.8;
@@ -43,6 +45,30 @@ export function getTotalExperienceToReachGuardianLevel(level: number): number {
 
 export function getGuardianLevelForTotalExperience(totalExperience: number): number {
   return getProgressionStateForTotalExperience(totalExperience).level;
+}
+
+export function getEnemyExperienceMultiplier(guardianLevel: number, enemyLevel: number): number {
+  if (!Number.isInteger(guardianLevel) || guardianLevel < 1 || guardianLevel > MAX_GUARDIAN_LEVEL) {
+    throw new RangeError(`Guardian level must be between 1 and ${MAX_GUARDIAN_LEVEL}`);
+  }
+  if (!Number.isInteger(enemyLevel) || enemyLevel < 1) {
+    throw new RangeError('Enemy level must be a positive integer');
+  }
+  if (enemyLevel >= guardianLevel) return 1;
+  return Math.max(0, 1 - (guardianLevel - enemyLevel) * 0.1);
+}
+
+export function getTotalExperienceAfterDeath(totalExperience: number): number {
+  const progression = getProgressionStateForTotalExperience(totalExperience);
+  if (progression.level < DEATH_EXPERIENCE_PENALTY_START_LEVEL) {
+    return progression.totalExperience;
+  }
+
+  const levelFloor = getTotalExperienceToReachGuardianLevel(progression.level);
+  return Math.max(
+    levelFloor,
+    Math.floor(progression.totalExperience * (1 - DEATH_EXPERIENCE_PENALTY)),
+  );
 }
 
 export function getEnemyExperienceReward(

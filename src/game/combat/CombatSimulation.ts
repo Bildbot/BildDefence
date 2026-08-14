@@ -1,6 +1,9 @@
 import type { CombatDefinition } from '../../content/firstCombat';
 import { ARENA_HEIGHT, ARENA_WIDTH } from '../../shared/constants';
-import { GuardianProgression } from '../progression/GuardianProgression';
+import {
+  GuardianProgression,
+  getEnemyExperienceMultiplier,
+} from '../progression/GuardianProgression';
 
 export const GUARDIAN_X = ARENA_WIDTH / 2;
 export const GUARDIAN_Y = ARENA_HEIGHT - 82;
@@ -15,6 +18,7 @@ export type EnemyState = {
   x: number;
   y: number;
   health: number;
+  maxHealth: number;
   attackCooldown: number;
 };
 
@@ -28,6 +32,7 @@ export type ProjectileState = {
 };
 
 export type CombatSnapshot = Readonly<{
+  arenaLevel: number;
   guardianHealth: number;
   guardianMaxHealth: number;
   guardianBarrier: number;
@@ -57,6 +62,7 @@ export class CombatSimulation {
   private guardianHealth: number;
   private guardianBarrier: number;
   private readonly progression: GuardianProgression;
+  private experienceRemainder = 0;
   private secondsSinceDamage = BARRIER_RECOVERY_DELAY_SECONDS;
   private elapsedSeconds = 0;
   private spawnedEnemies = 0;
@@ -81,6 +87,7 @@ export class CombatSimulation {
       x: 0,
       y: 0,
       health: 0,
+      maxHealth: definition.enemy.maxHealth,
       attackCooldown: 0,
     }));
     this.projectiles = Array.from({ length: MAX_PROJECTILES }, () => ({
@@ -111,6 +118,7 @@ export class CombatSimulation {
     for (const enemy of this.enemies) if (enemy.active) aliveEnemies += 1;
     const progression = this.progression.getSnapshot();
     return {
+      arenaLevel: this.definition.arenaLevel,
       guardianHealth: this.guardianHealth,
       guardianMaxHealth: this.definition.guardian.maxHealth,
       guardianBarrier: this.guardianBarrier,
@@ -139,7 +147,7 @@ export class CombatSimulation {
       enemy.active = true;
       enemy.x = SPAWN_MARGIN + this.random() * (ARENA_WIDTH - SPAWN_MARGIN * 2);
       enemy.y = 30;
-      enemy.health = this.definition.enemy.maxHealth;
+      enemy.health = enemy.maxHealth;
       enemy.attackCooldown = this.definition.enemy.attackIntervalSeconds;
       this.spawnedEnemies += 1;
       this.nextSpawnAt += this.definition.wave.spawnIntervalSeconds;
@@ -258,11 +266,20 @@ export class CombatSimulation {
         if (enemy.health <= 0) {
           enemy.active = false;
           this.defeatedEnemies += 1;
-          this.progression.addExperience(this.definition.enemy.experienceReward);
+          this.awardEnemyExperience();
         }
         break;
       }
     }
+  }
+
+  private awardEnemyExperience(): void {
+    const guardianLevel = this.progression.getSnapshot().level;
+    const multiplier = getEnemyExperienceMultiplier(guardianLevel, this.definition.enemy.level);
+    const exactReward = this.definition.enemy.experienceReward * multiplier + this.experienceRemainder;
+    const wholeReward = Math.floor(exactReward + Number.EPSILON);
+    this.experienceRemainder = exactReward - wholeReward;
+    this.progression.addExperience(wholeReward);
   }
 
   private checkVictory(): void {

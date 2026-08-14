@@ -11,6 +11,7 @@ export type GuardianDefinition = Readonly<{
 }>;
 
 export type EnemyDefinition = Readonly<{
+  level: number;
   maxHealth: number;
   speed: number;
   attackDamage: number;
@@ -25,12 +26,14 @@ export type WaveDefinition = Readonly<{
 }>;
 
 export type CombatDefinition = Readonly<{
+  arenaLevel: number;
   guardian: GuardianDefinition;
   enemy: EnemyDefinition;
   wave: WaveDefinition;
 }>;
 
 export const FIRST_COMBAT: CombatDefinition = {
+  arenaLevel: 1,
   guardian: {
     maxHealth: 100,
     maxBarrier: 25,
@@ -43,12 +46,13 @@ export const FIRST_COMBAT: CombatDefinition = {
     projectileSpeed: 430,
   },
   enemy: {
+    level: 1,
     maxHealth: 60,
     speed: 32,
     attackDamage: 8,
     attackIntervalSeconds: 1.2,
     stopDistance: 54,
-    experienceReward: 10,
+    experienceReward: 1,
   },
   wave: {
     enemyCount: 24,

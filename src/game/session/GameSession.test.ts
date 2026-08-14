@@ -3,18 +3,19 @@ import { FIRST_COMBAT } from '../../content/firstCombat';
 import { GameSession } from './GameSession';
 
 describe('GameSession', () => {
-  it('follows the supported run lifecycle and carries guardian state into the run', () => {
+  it('follows the supported run lifecycle and carries arena, stats, and experience into the run', () => {
     const session = new GameSession();
     const listener = vi.fn();
     session.subscribe(listener);
 
-    session.start(FIRST_COMBAT.guardian, 300);
+    session.start(FIRST_COMBAT.guardian, 500, 3);
     expect(session.getSnapshot()).toEqual({
       phase: 'running',
       runId: 1,
       result: null,
+      arenaLevel: 3,
       guardian: FIRST_COMBAT.guardian,
-      guardianTotalExperience: 300,
+      guardianTotalExperience: 500,
     });
     session.pause();
     expect(session.getSnapshot().phase).toBe('paused');
@@ -24,14 +25,16 @@ describe('GameSession', () => {
       phase: 'finished',
       runId: 1,
       result: 'victory',
+      arenaLevel: 3,
       guardian: FIRST_COMBAT.guardian,
-      guardianTotalExperience: 300,
+      guardianTotalExperience: 500,
     });
     session.exit();
     expect(session.getSnapshot()).toEqual({
       phase: 'menu',
       runId: 1,
       result: null,
+      arenaLevel: null,
       guardian: null,
       guardianTotalExperience: 0,
     });
@@ -47,6 +50,7 @@ describe('GameSession', () => {
       phase: 'menu',
       runId: 0,
       result: null,
+      arenaLevel: null,
       guardian: null,
       guardianTotalExperience: 0,
     });
