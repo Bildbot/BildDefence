@@ -172,44 +172,52 @@ export function App({ session, bridge, platform, saves }: Props) {
                   Ур. {combat.guardianLevel} · {formatTime(combat.elapsedSeconds)}
                 </strong>
               </div>
-              <div
-                className="health-track"
-                aria-label={`${strings.health}: ${Math.ceil(combat.guardianHealth)} / ${combat.guardianMaxHealth}`}
-              >
+              <div className="hud-meter-row">
                 <div
-                  className="health-value"
-                  style={{ width: `${(combat.guardianHealth / combat.guardianMaxHealth) * 100}%` }}
-                />
+                  className="health-track"
+                  aria-label={`${strings.health}: ${Math.ceil(combat.guardianHealth)} / ${combat.guardianMaxHealth}`}
+                >
+                  <div
+                    className="health-value"
+                    style={{
+                      width: `${(combat.guardianHealth / combat.guardianMaxHealth) * 100}%`,
+                    }}
+                  />
+                </div>
                 <span className="bar-label">
                   {Math.ceil(combat.guardianHealth)} / {combat.guardianMaxHealth}
                 </span>
               </div>
-              <div
-                className="barrier-track"
-                aria-label={`${strings.barrier}: ${Math.ceil(combat.guardianBarrier)} / ${combat.guardianMaxBarrier}`}
-              >
+              <div className="hud-meter-row">
                 <div
-                  className="barrier-value"
-                  style={{
-                    width: `${(combat.guardianBarrier / combat.guardianMaxBarrier) * 100}%`,
-                  }}
-                />
+                  className="barrier-track"
+                  aria-label={`${strings.barrier}: ${Math.ceil(combat.guardianBarrier)} / ${combat.guardianMaxBarrier}`}
+                >
+                  <div
+                    className="barrier-value"
+                    style={{
+                      width: `${(combat.guardianBarrier / combat.guardianMaxBarrier) * 100}%`,
+                    }}
+                  />
+                </div>
                 <span className="bar-label">
                   {Math.ceil(combat.guardianBarrier)} / {combat.guardianMaxBarrier}
                 </span>
               </div>
-              <div
-                className="experience-track"
-                aria-label={
-                  combat.guardianExperienceForNextLevel === 0
-                    ? `Уровень ${combat.guardianLevel}, максимум`
-                    : `Опыт: ${combat.guardianExperience} / ${combat.guardianExperienceForNextLevel}`
-                }
-              >
+              <div className="hud-meter-row">
                 <div
-                  className="experience-value"
-                  style={{ width: `${getExperiencePercent(combat)}%` }}
-                />
+                  className="experience-track"
+                  aria-label={
+                    combat.guardianExperienceForNextLevel === 0
+                      ? `Уровень ${combat.guardianLevel}, максимум`
+                      : `Опыт: ${combat.guardianExperience} / ${combat.guardianExperienceForNextLevel}`
+                  }
+                >
+                  <div
+                    className="experience-value"
+                    style={{ width: `${getExperiencePercent(combat)}%` }}
+                  />
+                </div>
                 <span className="bar-label">
                   {combat.guardianExperienceForNextLevel === 0
                     ? 'MAX'
