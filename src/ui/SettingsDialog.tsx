@@ -39,7 +39,7 @@ export function SettingsDialog({ settings, onChange, onClose }: Props) {
           <button
             className="dialog-close-btn"
             type="button"
-            aria-label={strings.close}
+            aria-label="Закрыть настройки"
             onClick={() => {
               soundFX.playClick();
               onClose();
