@@ -9,6 +9,7 @@ import {
   applyEquipmentToGuardian,
   generateVictoryLoot,
   getEquippedItem,
+  orderAffixes,
   type EquipmentItem,
 } from '../game/equipment/Equipment';
 import {
@@ -748,7 +749,7 @@ function ItemDetails({
         <div className="item-affixes">
           <h4>Аффиксы</h4>
           <ul>
-            {item.affixes.map((affix) => (
+            {orderAffixes(item.affixes).map((affix) => (
               <li key={affix.family}>
                 <span>
                   {affix.kind === 'prefix' ? 'Префикс' : 'Суффикс'} · T{affix.tier}

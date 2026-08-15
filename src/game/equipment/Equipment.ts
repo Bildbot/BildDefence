@@ -19,6 +19,7 @@ export type EquipmentAffix = Readonly<{
     | 'armor'
     | 'damage'
     | 'flatDamage'
+    | 'localAttackSpeed'
     | 'attackSpeed'
     | 'criticalChance'
     | 'criticalMultiplier';
@@ -117,6 +118,12 @@ export function getEquippedItem(
   return id ? state.items.find((item) => item.id === id) : undefined;
 }
 
+export function orderAffixes(affixes: readonly EquipmentAffix[]): readonly EquipmentAffix[] {
+  return [...affixes].sort((left, right) =>
+    left.kind === right.kind ? 0 : left.kind === 'prefix' ? -1 : 1,
+  );
+}
+
 export function applyEquipmentToGuardian(
   guardian: GuardianDefinition,
   equipment: EquipmentState,
@@ -132,7 +139,8 @@ export function applyEquipmentToGuardian(
       .reduce((total, affix) => total + affix.value, 0);
   const baseArmor = equippedItems.reduce((total, item) => total + (item.armorPercent ?? 0), 0);
   const damageMultiplier = 1 + modifierTotal('damage');
-  const attackSpeedMultiplier = 1 + modifierTotal('attackSpeed');
+  const localAttackSpeedMultiplier = 1 + modifierTotal('localAttackSpeed');
+  const globalAttackSpeedMultiplier = 1 + modifierTotal('attackSpeed');
   const addedMinimumDamage = affixes.reduce(
     (total, affix) =>
       total + (affix.modifier === 'flatDamage' ? affix.value : 0) + (affix.addedMinimumDamage ?? 0),
@@ -155,7 +163,10 @@ export function applyEquipmentToGuardian(
     maximumDamage: Math.round(
       ((bow?.maximumDamage ?? guardian.maximumDamage) + addedMaximumDamage) * damageMultiplier,
     ),
-    attacksPerSecond: (bow?.attacksPerSecond ?? guardian.attacksPerSecond) * attackSpeedMultiplier,
+    attacksPerSecond:
+      (bow?.attacksPerSecond ?? guardian.attacksPerSecond) *
+      localAttackSpeedMultiplier *
+      globalAttackSpeedMultiplier,
     criticalChance:
       (bow?.criticalChance ?? guardian.criticalChance) + modifierTotal('criticalChance'),
     criticalMultiplier: guardian.criticalMultiplier + modifierTotal('criticalMultiplier'),
@@ -262,8 +273,11 @@ const BOW_AFFIXES: readonly AffixDefinition[] = [
     family: 'attack-speed',
     kind: 'suffix',
     label: 'Скорость атаки',
-    modifier: 'attackSpeed',
-    valueAtTier: (power) => (2 + power) / 100,
+    modifier: 'localAttackSpeed',
+    valueAtTier: (power, random) => {
+      const range = ATTACK_SPEED_RANGES[power - 1] ?? [2, 4];
+      return rollInteger(range[0], range[1], random) / 100;
+    },
     format: percent,
   },
   {
@@ -314,10 +328,23 @@ const HYBRID_FLAT_RANGES: readonly (readonly [number, number])[] = [
   [8, 12],
   [11, 17],
 ];
+const ATTACK_SPEED_RANGES: readonly (readonly [number, number])[] = [
+  [2, 4],
+  [5, 7],
+  [8, 10],
+  [11, 13],
+  [14, 16],
+  [17, 19],
+  [20, 22],
+  [23, 25],
+];
+
+const toGlobalAttackSpeed = (affix: AffixDefinition): AffixDefinition =>
+  affix.family === 'attack-speed' ? { ...affix, modifier: 'attackSpeed' } : affix;
 
 const QUIVER_AFFIXES = BOW_AFFIXES.filter(
   (affix) => affix.kind === 'suffix' || affix.family === 'damage',
-);
+).map(toGlobalAttackSpeed);
 
 const DEFENSIVE_AFFIXES: readonly AffixDefinition[] = [
   {
@@ -370,7 +397,7 @@ function generateAffixes(
               ...DEFENSIVE_AFFIXES,
               ...BOW_AFFIXES.filter(
                 (affix) => affix.family === 'attack-speed' || affix.family === 'critical-chance',
-              ),
+              ).map(toGlobalAttackSpeed),
             ]
           : DEFENSIVE_AFFIXES;
   const available = [...pool];
@@ -524,6 +551,7 @@ function isEquipmentAffix(value: unknown): value is EquipmentAffix {
       'armor',
       'damage',
       'flatDamage',
+      'localAttackSpeed',
       'attackSpeed',
       'criticalChance',
       'criticalMultiplier',

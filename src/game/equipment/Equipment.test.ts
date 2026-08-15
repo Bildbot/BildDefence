@@ -6,6 +6,7 @@ import {
   equipItem,
   generateVictoryLoot,
   getStrongestAffixTier,
+  orderAffixes,
   getEquippedItem,
 } from './Equipment';
 import { FIRST_COMBAT } from '../../content/firstCombat';
@@ -72,6 +73,39 @@ describe('Equipment', () => {
     });
     expect(guardian.minimumDamage).toBe(18);
     expect(guardian.maximumDamage).toBe(28);
+  });
+
+  it('applies bow attack speed locally and orders prefixes above suffixes', () => {
+    const prefix = {
+      family: 'damage',
+      kind: 'prefix' as const,
+      label: 'Увеличение физического урона',
+      tier: 8,
+      value: 0.1,
+      valueLabel: '+10%',
+      modifier: 'damage' as const,
+    };
+    const suffix = {
+      family: 'attack-speed',
+      kind: 'suffix' as const,
+      label: 'Скорость атаки',
+      tier: 8,
+      value: 0.04,
+      valueLabel: '+4%',
+      modifier: 'localAttackSpeed' as const,
+    };
+    const bow = {
+      ...DEFAULT_EQUIPMENT.items[0]!,
+      id: 'test-speed-bow',
+      affixCount: 2,
+      affixes: [suffix, prefix],
+    };
+    const guardian = applyEquipmentToGuardian(FIRST_COMBAT.guardian, {
+      items: [bow],
+      equipped: { bow: bow.id },
+    });
+    expect(guardian.attacksPerSecond).toBeCloseTo(1.55 * 1.04);
+    expect(orderAffixes(bow.affixes)).toEqual([prefix, suffix]);
   });
 
   it('starts with the agreed short bow and equips owned items by slot', () => {
