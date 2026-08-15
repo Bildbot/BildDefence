@@ -37,6 +37,43 @@ describe('Equipment', () => {
     ]);
   });
 
+  it('adds flat bow damage before applying increased physical damage', () => {
+    const bow = {
+      ...DEFAULT_EQUIPMENT.items[0]!,
+      id: 'test-hybrid-bow',
+      affixCount: 2,
+      affixes: [
+        {
+          family: 'flat-physical-damage',
+          kind: 'prefix' as const,
+          label: 'Дополнительный физический урон',
+          tier: 8,
+          value: 2,
+          secondaryValue: 4,
+          valueLabel: '+2–4',
+          modifier: 'flatDamage' as const,
+        },
+        {
+          family: 'hybrid-physical-damage',
+          kind: 'prefix' as const,
+          label: 'Физический и дополнительный физический урон',
+          tier: 8,
+          value: 0.1,
+          addedMinimumDamage: 1,
+          addedMaximumDamage: 2,
+          valueLabel: '+10% · +1–2',
+          modifier: 'damage' as const,
+        },
+      ],
+    };
+    const guardian = applyEquipmentToGuardian(FIRST_COMBAT.guardian, {
+      items: [bow],
+      equipped: { bow: bow.id },
+    });
+    expect(guardian.minimumDamage).toBe(18);
+    expect(guardian.maximumDamage).toBe(28);
+  });
+
   it('starts with the agreed short bow and equips owned items by slot', () => {
     const reward = generateVictoryLoot(1, 3)[0];
     expect(getEquippedItem(DEFAULT_EQUIPMENT, 'bow')?.name).toBe('Короткий лук');

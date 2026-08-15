@@ -198,14 +198,5 @@ export class ArenaScene extends Phaser.Scene {
     graphics.lineBetween(24, GUARDIAN_Y, ARENA_WIDTH - 24, GUARDIAN_Y);
     graphics.fillStyle(0x122c3c, 0.85);
     graphics.fillCircle(GUARDIAN_X, GUARDIAN_Y, 48);
-
-    this.add
-      .text(ARENA_WIDTH / 2, 92, 'ВРАГИ НАСТУПАЮТ С СЕВЕРА', {
-        color: '#779bad',
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '12px',
-        letterSpacing: 1.5,
-      })
-      .setOrigin(0.5);
   }
 }

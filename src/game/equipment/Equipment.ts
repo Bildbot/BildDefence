@@ -9,12 +9,16 @@ export type EquipmentAffix = Readonly<{
   label: string;
   tier: number;
   value: number;
+  secondaryValue?: number;
+  addedMinimumDamage?: number;
+  addedMaximumDamage?: number;
   valueLabel: string;
   modifier:
     | 'maxHealth'
     | 'healthRegen'
     | 'armor'
     | 'damage'
+    | 'flatDamage'
     | 'attackSpeed'
     | 'criticalChance'
     | 'criticalMultiplier';
@@ -129,12 +133,28 @@ export function applyEquipmentToGuardian(
   const baseArmor = equippedItems.reduce((total, item) => total + (item.armorPercent ?? 0), 0);
   const damageMultiplier = 1 + modifierTotal('damage');
   const attackSpeedMultiplier = 1 + modifierTotal('attackSpeed');
+  const addedMinimumDamage = affixes.reduce(
+    (total, affix) =>
+      total + (affix.modifier === 'flatDamage' ? affix.value : 0) + (affix.addedMinimumDamage ?? 0),
+    0,
+  );
+  const addedMaximumDamage = affixes.reduce(
+    (total, affix) =>
+      total +
+      (affix.modifier === 'flatDamage' ? (affix.secondaryValue ?? affix.value) : 0) +
+      (affix.addedMaximumDamage ?? 0),
+    0,
+  );
   return {
     ...guardian,
     maxHealth: guardian.maxHealth + modifierTotal('maxHealth'),
     healthRegenPerSecond: guardian.healthRegenPerSecond + modifierTotal('healthRegen'),
-    minimumDamage: Math.round((bow?.minimumDamage ?? guardian.minimumDamage) * damageMultiplier),
-    maximumDamage: Math.round((bow?.maximumDamage ?? guardian.maximumDamage) * damageMultiplier),
+    minimumDamage: Math.round(
+      ((bow?.minimumDamage ?? guardian.minimumDamage) + addedMinimumDamage) * damageMultiplier,
+    ),
+    maximumDamage: Math.round(
+      ((bow?.maximumDamage ?? guardian.maximumDamage) + addedMaximumDamage) * damageMultiplier,
+    ),
     attacksPerSecond: (bow?.attacksPerSecond ?? guardian.attacksPerSecond) * attackSpeedMultiplier,
     criticalChance:
       (bow?.criticalChance ?? guardian.criticalChance) + modifierTotal('criticalChance'),
@@ -183,12 +203,18 @@ type AffixDefinition = Readonly<{
   modifier: EquipmentAffix['modifier'];
   valueAtTier: (power: number, random: () => number) => number;
   format: (value: number) => string;
+  rollAtTier?: (power: number, random: () => number) => AffixRoll;
 }>;
+
+type AffixRoll = Pick<
+  EquipmentAffix,
+  'value' | 'valueLabel' | 'secondaryValue' | 'addedMinimumDamage' | 'addedMaximumDamage'
+>;
 
 const percent = (value: number) => `+${Math.round(value * 100)}%`;
 const number = (value: number) => `+${value.toFixed(1).replace('.', ',')}`;
 
-const OFFENSIVE_AFFIXES: readonly AffixDefinition[] = [
+const BOW_AFFIXES: readonly AffixDefinition[] = [
   {
     family: 'damage',
     kind: 'prefix',
@@ -200,6 +226,37 @@ const OFFENSIVE_AFFIXES: readonly AffixDefinition[] = [
       return (minimum + Math.floor(random() * (maximum - minimum + 1))) / 100;
     },
     format: percent,
+  },
+  {
+    family: 'flat-physical-damage',
+    kind: 'prefix',
+    label: 'Дополнительный физический урон',
+    modifier: 'flatDamage',
+    valueAtTier: () => 0,
+    format: String,
+    rollAtTier: (power, random) => {
+      const [minimum, maximum] = rollDamageRange(FLAT_DAMAGE_RANGES[power - 1] ?? [1, 2], random);
+      return { value: minimum, secondaryValue: maximum, valueLabel: `+${minimum}–${maximum}` };
+    },
+  },
+  {
+    family: 'hybrid-physical-damage',
+    kind: 'prefix',
+    label: 'Физический и дополнительный физический урон',
+    modifier: 'damage',
+    valueAtTier: () => 0,
+    format: String,
+    rollAtTier: (power, random) => {
+      const percentRange = HYBRID_PERCENT_RANGES[power - 1] ?? [5, 9];
+      const percentValue = rollInteger(percentRange[0], percentRange[1], random) / 100;
+      const [minimum, maximum] = rollDamageRange(HYBRID_FLAT_RANGES[power - 1] ?? [1, 1], random);
+      return {
+        value: percentValue,
+        addedMinimumDamage: minimum,
+        addedMaximumDamage: maximum,
+        valueLabel: `+${Math.round(percentValue * 100)}% · +${minimum}–${maximum}`,
+      };
+    },
   },
   {
     family: 'attack-speed',
@@ -225,15 +282,42 @@ const OFFENSIVE_AFFIXES: readonly AffixDefinition[] = [
     valueAtTier: (power) => (4 + power * 2) / 100,
     format: percent,
   },
-  {
-    family: 'vitality',
-    kind: 'prefix',
-    label: 'Максимум здоровья',
-    modifier: 'maxHealth',
-    valueAtTier: (power) => 3 + power * 2,
-    format: (value) => `+${value}`,
-  },
 ];
+
+const FLAT_DAMAGE_RANGES: readonly (readonly [number, number])[] = [
+  [1, 2],
+  [2, 4],
+  [4, 7],
+  [6, 10],
+  [9, 14],
+  [12, 19],
+  [16, 25],
+  [22, 34],
+];
+const HYBRID_PERCENT_RANGES: readonly (readonly [number, number])[] = [
+  [5, 9],
+  [10, 14],
+  [15, 19],
+  [20, 24],
+  [25, 29],
+  [30, 34],
+  [35, 39],
+  [45, 50],
+];
+const HYBRID_FLAT_RANGES: readonly (readonly [number, number])[] = [
+  [1, 1],
+  [1, 2],
+  [2, 4],
+  [3, 5],
+  [4, 7],
+  [6, 9],
+  [8, 12],
+  [11, 17],
+];
+
+const QUIVER_AFFIXES = BOW_AFFIXES.filter(
+  (affix) => affix.kind === 'suffix' || affix.family === 'damage',
+);
 
 const DEFENSIVE_AFFIXES: readonly AffixDefinition[] = [
   {
@@ -277,11 +361,18 @@ function generateAffixes(
   random: () => number,
 ): readonly EquipmentAffix[] {
   const pool =
-    slot === 'bow' || slot === 'quiver'
-      ? OFFENSIVE_AFFIXES
-      : slot === 'gloves'
-        ? [...DEFENSIVE_AFFIXES, ...OFFENSIVE_AFFIXES.slice(1, 3)]
-        : DEFENSIVE_AFFIXES;
+    slot === 'bow'
+      ? BOW_AFFIXES
+      : slot === 'quiver'
+        ? QUIVER_AFFIXES
+        : slot === 'gloves'
+          ? [
+              ...DEFENSIVE_AFFIXES,
+              ...BOW_AFFIXES.filter(
+                (affix) => affix.family === 'attack-speed' || affix.family === 'critical-chance',
+              ),
+            ]
+          : DEFENSIVE_AFFIXES;
   const available = [...pool];
   const result: EquipmentAffix[] = [];
   while (result.length < count && available.length > 0) {
@@ -296,10 +387,28 @@ function generateAffixes(
     const tierRange = 9 - strongestTier;
     const tier = strongestTier + Math.floor(Math.pow(random(), 0.35) * tierRange);
     const power = 9 - tier;
-    const value = definition.valueAtTier(power, random);
-    result.push({ ...definition, tier, value, valueLabel: definition.format(value) });
+    const roll = definition.rollAtTier?.(power, random);
+    const value = roll?.value ?? definition.valueAtTier(power, random);
+    result.push({
+      ...definition,
+      tier,
+      ...(roll ?? { value, valueLabel: definition.format(value) }),
+    });
   }
   return result;
+}
+
+function rollDamageRange(range: readonly [number, number], random: () => number): [number, number] {
+  const middle = Math.floor((range[0] + range[1]) / 2);
+  return [
+    rollInteger(range[0], middle, random),
+    rollInteger(Math.max(middle + 1, range[0]), range[1], random),
+  ];
+}
+
+function rollInteger(minimum: number, maximum: number, random: () => number): number {
+  if (maximum <= minimum) return minimum;
+  return minimum + Math.floor(random() * (maximum - minimum + 1));
 }
 
 export function getStrongestAffixTier(level: number): number {
@@ -405,12 +514,16 @@ function isEquipmentAffix(value: unknown): value is EquipmentAffix {
     Number.isInteger(value.tier) &&
     typeof value.value === 'number' &&
     Number.isFinite(value.value) &&
+    isOptionalFiniteNumber(value.secondaryValue) &&
+    isOptionalFiniteNumber(value.addedMinimumDamage) &&
+    isOptionalFiniteNumber(value.addedMaximumDamage) &&
     typeof value.valueLabel === 'string' &&
     [
       'maxHealth',
       'healthRegen',
       'armor',
       'damage',
+      'flatDamage',
       'attackSpeed',
       'criticalChance',
       'criticalMultiplier',

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('starts, pauses, resumes, and exits a run', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'BILD DEFENCE' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Начать забег' })).toBeVisible();
   await page.getByRole('button', { name: 'Начать забег' }).click();
   const healthBar = page.getByLabel('Здоровье стража: 100 / 100');
   await expect(healthBar).toBeVisible();

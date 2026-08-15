@@ -1,6 +1,4 @@
 export const strings = {
-  title: 'BILD DEFENCE',
-  subtitle: 'Страж последнего рубежа',
   start: 'Начать забег',
   settings: 'Настройки',
   pause: 'Пауза',
@@ -25,5 +23,4 @@ export const strings = {
   effects: 'Эффекты',
   vibration: 'Вибрация',
   reducedEffects: 'Сниженные эффекты',
-  foundation: 'Дом стража',
 } as const;

@@ -266,9 +266,6 @@ export function App({ session, bridge, platform, saves }: Props) {
         )}
         {state.phase === 'menu' && (
           <div className="menu-overlay">
-            <p className="eyebrow">{strings.foundation}</p>
-            <h1>{strings.title}</h1>
-            <p className="subtitle">{strings.subtitle}</p>
             <ArenaSelector
               selectedArena={selectedArena}
               maxUnlockedArena={progression.maxUnlockedArena}
