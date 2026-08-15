@@ -21,7 +21,7 @@ test('persists settings across reloads', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Настройки' }).click();
   await page.getByRole('checkbox', { name: 'Вибрация' }).uncheck();
-  await page.getByRole('button', { name: 'Закрыть' }).click();
+  await page.getByRole('button', { name: 'Закрыть', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Настройки' }).click();
   await expect(page.getByRole('checkbox', { name: 'Вибрация' })).not.toBeChecked();
