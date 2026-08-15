@@ -32,8 +32,15 @@ describe('SaveRepository', () => {
   it('persists settings without losing progression', async () => {
     const storage = new MemoryStorage();
     const repository = new SaveRepository(storage);
-    await repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 448 });
-    await repository.saveSettings({ ...DEFAULT_SAVE.settings, vibration: false });
+    await repository.settleRun({
+      arenaLevel: 1,
+      result: 'victory',
+      guardianTotalExperience: 448,
+    });
+    await repository.saveSettings({
+      ...DEFAULT_SAVE.settings,
+      vibration: false,
+    });
     const stored = JSON.parse(storage.values.get(SAVE_KEY) ?? '{}') as typeof DEFAULT_SAVE;
     expect(stored.settings.vibration).toBe(false);
     expect(stored.progression.unspentStatPoints).toBe(2);
@@ -79,14 +86,22 @@ describe('SaveRepository', () => {
   it('persists total experience and only awards points for newly reached levels', async () => {
     const repository = new SaveRepository(new MemoryStorage());
     await expect(
-      repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 500 }),
+      repository.settleRun({
+        arenaLevel: 1,
+        result: 'victory',
+        guardianTotalExperience: 500,
+      }),
     ).resolves.toMatchObject({
       completedRuns: 1,
       unspentStatPoints: 2,
       guardianTotalExperience: 500,
     });
     await expect(
-      repository.settleRun({ arenaLevel: 2, result: 'victory', guardianTotalExperience: 600 }),
+      repository.settleRun({
+        arenaLevel: 2,
+        result: 'victory',
+        guardianTotalExperience: 600,
+      }),
     ).resolves.toMatchObject({
       completedRuns: 2,
       unspentStatPoints: 2,
@@ -97,10 +112,18 @@ describe('SaveRepository', () => {
   it('unlocks only the next arena after victory and does not unlock on defeat', async () => {
     const repository = new SaveRepository(new MemoryStorage());
     await expect(
-      repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 24 }),
+      repository.settleRun({
+        arenaLevel: 1,
+        result: 'victory',
+        guardianTotalExperience: 24,
+      }),
     ).resolves.toMatchObject({ maxUnlockedArena: 2 });
     await expect(
-      repository.settleRun({ arenaLevel: 2, result: 'defeat', guardianTotalExperience: 30 }),
+      repository.settleRun({
+        arenaLevel: 2,
+        result: 'defeat',
+        guardianTotalExperience: 30,
+      }),
     ).resolves.toMatchObject({ maxUnlockedArena: 2 });
   });
 
@@ -132,7 +155,11 @@ describe('SaveRepository', () => {
 
   it('spends a point on the selected guardian stat', async () => {
     const repository = new SaveRepository(new MemoryStorage());
-    await repository.settleRun({ arenaLevel: 1, result: 'victory', guardianTotalExperience: 448 });
+    await repository.settleRun({
+      arenaLevel: 1,
+      result: 'victory',
+      guardianTotalExperience: 448,
+    });
     const progression = await repository.spendGuardianStatPoint('damage');
     expect(progression.unspentStatPoints).toBe(1);
     expect(progression.guardianStatUpgrades.damage).toBe(1);
@@ -163,12 +190,15 @@ describe('SaveRepository', () => {
         version: 6,
         progression: {
           ...DEFAULT_SAVE.progression,
-          equipment: { items: [legacyReward], equipped: { [reward.slot]: reward.id } },
+          equipment: {
+            items: [legacyReward],
+            equipped: { [reward.slot]: reward.id },
+          },
         },
       }),
     );
     const migrated = await new SaveRepository(storage).load();
-    expect(migrated.version).toBe(7);
+    expect(migrated.version).toBe(8);
     expect(migrated.progression.equipment.items[0]?.affixes).toHaveLength(reward.affixCount);
   });
 
@@ -203,5 +233,56 @@ describe('SaveRepository', () => {
     await expect(repository.load()).resolves.toEqual(DEFAULT_SAVE);
     expect(storage.quarantined).toEqual([{ key: SAVE_KEY, value: '{broken-json' }]);
     expect(storage.values.has(SAVE_KEY)).toBe(false);
+  });
+  it('migrates version 7 saves with a zero gold balance', async () => {
+    const storage = new MemoryStorage();
+    const legacy = {
+      ...DEFAULT_SAVE,
+      version: 7,
+      progression: { ...DEFAULT_SAVE.progression },
+    } as Record<string, unknown>;
+    delete (legacy.progression as Record<string, unknown>).gold;
+    storage.values.set(SAVE_KEY, JSON.stringify(legacy));
+    const migrated = await new SaveRepository(storage).load();
+    expect(migrated.version).toBe(8);
+    expect(migrated.progression.gold).toBe(0);
+  });
+
+  it('sells unequipped loot and credits gold', async () => {
+    const storage = new MemoryStorage();
+    const repository = new SaveRepository(storage);
+    const reward = generateVictoryLoot(21, 8)[0]!;
+    await repository.addVictoryLoot([reward]);
+    const sold = await repository.sellItem(reward.id);
+    expect(sold.gold).toBeGreaterThan(0);
+    expect(sold.equipment.items.some((item) => item.id === reward.id)).toBe(false);
+  });
+
+  it('spends gold to add and reroll affixes', async () => {
+    const storage = new MemoryStorage();
+    storage.values.set(
+      SAVE_KEY,
+      JSON.stringify({
+        ...DEFAULT_SAVE,
+        progression: { ...DEFAULT_SAVE.progression, gold: 5000 },
+      }),
+    );
+    const repository = new SaveRepository(storage);
+    const item = {
+      ...DEFAULT_SAVE.progression.equipment.items[0]!,
+      id: 'craft-save-test',
+    };
+    await repository.addVictoryLoot([item]);
+    const added = await repository.addItemAffix(item.id);
+    expect(added.gold).toBe(4900);
+    expect(added.equipment.items.find((candidate) => candidate.id === item.id)?.affixCount).toBe(1);
+    const affix = added.equipment.items.find((candidate) => candidate.id === item.id)?.affixes[0];
+    expect(affix).toBeDefined();
+    if (!affix) return;
+    const rerolled = await repository.rerollItemAffix(item.id, affix.family);
+    expect(rerolled.gold).toBe(4700);
+    expect(
+      rerolled.equipment.items.find((candidate) => candidate.id === item.id)?.rerollAttempts,
+    ).toBe(1);
   });
 });

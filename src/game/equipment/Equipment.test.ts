@@ -6,6 +6,12 @@ import {
   equipItem,
   generateVictoryLoot,
   getStrongestAffixTier,
+  addRandomAffix,
+  getAddAffixCost,
+  getItemSalePrice,
+  getRerollAffixCost,
+  rerollAffix,
+  sellItem,
   orderAffixes,
   getEquippedItem,
 } from './Equipment';
@@ -187,5 +193,39 @@ describe('Equipment', () => {
       .filter((affix) => affix.modifier === 'armor')
       .reduce((total, affix) => total + affix.value, 0);
     expect(guardian.armorPercent).toBeCloseTo((armor.armorPercent ?? 0) + affixArmor);
+  });
+  it('sells only unequipped items and calculates a positive sale price', () => {
+    const reward = generateVictoryLoot(21, 3)[0]!;
+    const state = addItems(DEFAULT_EQUIPMENT, [reward]);
+    expect(getItemSalePrice(reward)).toBeGreaterThan(0);
+    expect(sellItem(state, reward.id).items).not.toContainEqual(reward);
+    expect(sellItem(equipItem(state, reward.id), reward.id)).toEqual(equipItem(state, reward.id));
+  });
+
+  it('adds affixes up to four and upgrades item rarity', () => {
+    const normal = { ...DEFAULT_EQUIPMENT.items[0]!, id: 'craft-add-test' };
+    expect(getAddAffixCost(normal)).toBe(100);
+    const magic = addRandomAffix(normal, () => 0);
+    expect(magic.affixCount).toBe(1);
+    expect(magic.rarity).toBe('magic');
+    const rare = addRandomAffix(
+      addRandomAffix(magic, () => 0),
+      () => 0,
+    );
+    expect(rare.affixCount).toBe(3);
+    expect(rare.rarity).toBe('rare');
+  });
+
+  it('rerolls the selected affix within its kind and increases future cost', () => {
+    const item = Array.from({ length: 30 }, (_, runId) => generateVictoryLoot(51, runId))
+      .flat()
+      .find((candidate) => candidate.affixes.length > 0)!;
+    const original = item.affixes[0]!;
+    const rerolled = rerollAffix(item, original.family, () => 0);
+    expect(rerolled.affixCount).toBe(item.affixCount);
+    expect(rerolled.affixes.find((affix) => !item.affixes.includes(affix))?.kind).toBe(
+      original.kind,
+    );
+    expect(getRerollAffixCost(rerolled)).toBe(300);
   });
 });

@@ -44,6 +44,7 @@ export type EquipmentItem = Readonly<{
   attacksPerSecond?: number;
   criticalChance?: number;
   armorPercent?: number;
+  rerollAttempts?: number;
 }>;
 
 export type EquipmentState = Readonly<{
@@ -104,13 +105,83 @@ export function generateVictoryLoot(arenaLevel: number, runId: number): readonly
 
 export function addItems(state: EquipmentState, items: readonly EquipmentItem[]): EquipmentState {
   const knownIds = new Set(state.items.map((item) => item.id));
-  return { ...state, items: [...state.items, ...items.filter((item) => !knownIds.has(item.id))] };
+  return {
+    ...state,
+    items: [...state.items, ...items.filter((item) => !knownIds.has(item.id))],
+  };
 }
 
 export function equipItem(state: EquipmentState, itemId: string): EquipmentState {
   const item = state.items.find((candidate) => candidate.id === itemId);
   if (!item) return state;
   return { ...state, equipped: { ...state.equipped, [item.slot]: item.id } };
+}
+
+export const AFFIX_CRAFT_COSTS = [100, 250, 750, 2000] as const;
+
+export function getItemSalePrice(item: EquipmentItem): number {
+  const rarityMultiplier = item.rarity === 'rare' ? 3 : item.rarity === 'magic' ? 1.75 : 1;
+  return Math.max(
+    1,
+    Math.round((5 + item.level * item.rank * 0.8 + item.affixCount * 12) * rarityMultiplier),
+  );
+}
+
+export function sellItem(state: EquipmentState, itemId: string): EquipmentState {
+  if (Object.values(state.equipped).includes(itemId)) return state;
+  const items = state.items.filter((item) => item.id !== itemId);
+  return items.length === state.items.length ? state : { ...state, items };
+}
+
+export function getAddAffixCost(item: EquipmentItem): number | null {
+  return item.affixCount < 4 ? (AFFIX_CRAFT_COSTS[item.affixCount] ?? null) : null;
+}
+
+export function getRerollAffixCost(item: EquipmentItem): number {
+  return Math.round(200 * 1.5 ** (item.rerollAttempts ?? 0));
+}
+
+export function addRandomAffix(
+  item: EquipmentItem,
+  random: () => number = Math.random,
+): EquipmentItem {
+  if (item.affixCount >= 4) return item;
+  const affixes = generateAffixes(item.slot, item.level, item.affixCount + 1, random, item.affixes);
+  if (affixes.length === item.affixes.length) return item;
+  return {
+    ...item,
+    rarity: affixes.length >= 3 ? 'rare' : 'magic',
+    affixCount: affixes.length,
+    affixes,
+  };
+}
+
+export function rerollAffix(
+  item: EquipmentItem,
+  family: string,
+  random: () => number = Math.random,
+): EquipmentItem {
+  const replaced = item.affixes.find((affix) => affix.family === family);
+  if (!replaced) return item;
+  const kept = item.affixes.filter((affix) => affix.family !== family);
+  const affixes = generateAffixes(
+    item.slot,
+    item.level,
+    item.affixCount,
+    random,
+    kept,
+    replaced.kind,
+  );
+  if (affixes.length !== item.affixCount) return item;
+  return { ...item, affixes, rerollAttempts: (item.rerollAttempts ?? 0) + 1 };
+}
+
+export function replaceItem(state: EquipmentState, item: EquipmentItem): EquipmentState {
+  if (!state.items.some((candidate) => candidate.id === item.id)) return state;
+  return {
+    ...state,
+    items: state.items.map((candidate) => (candidate.id === item.id ? item : candidate)),
+  };
 }
 
 export function getEquippedItem(
@@ -262,7 +333,11 @@ const BOW_AFFIXES: readonly AffixDefinition[] = [
     format: String,
     rollAtTier: (power, random) => {
       const [minimum, maximum] = rollDamageRange(FLAT_DAMAGE_RANGES[power - 1] ?? [1, 2], random);
-      return { value: minimum, secondaryValue: maximum, valueLabel: `+${minimum}–${maximum}` };
+      return {
+        value: minimum,
+        secondaryValue: maximum,
+        valueLabel: `+${minimum}–${maximum}`,
+      };
     },
   },
   {
@@ -326,7 +401,16 @@ const BOW_AFFIXES: readonly AffixDefinition[] = [
     modifier: 'ricochet',
     valueAtTier: () => 0,
     format: String,
-    tierWeights: { 8: 1000, 7: 700, 6: 450, 5: 250, 4: 120, 3: 50, 2: 12, 1: 1 },
+    tierWeights: {
+      8: 1000,
+      7: 700,
+      6: 450,
+      5: 250,
+      4: 120,
+      3: 50,
+      2: 12,
+      1: 1,
+    },
     rollAtTier: (power) => {
       const [count, damagePercent] = RICOCHET_VALUES[power - 1] ?? [1, 40];
       return {
@@ -482,6 +566,8 @@ function generateAffixes(
   level: number,
   count: number,
   random: () => number,
+  initialAffixes: readonly EquipmentAffix[] = [],
+  requiredKind?: EquipmentAffix['kind'],
 ): readonly EquipmentAffix[] {
   const pool =
     slot === 'bow'
@@ -496,11 +582,14 @@ function generateAffixes(
               ).map(toGlobalOffence),
             ]
           : DEFENSIVE_AFFIXES;
-  const available = [...pool];
-  const result: EquipmentAffix[] = [];
+  const initialFamilies = new Set(initialAffixes.map((affix) => affix.family));
+  const available = pool.filter((definition) => !initialFamilies.has(definition.family));
+  const result: EquipmentAffix[] = [...initialAffixes];
   while (result.length < count && available.length > 0) {
     const allowed = available.filter(
-      (candidate) => result.filter((affix) => affix.kind === candidate.kind).length < 2,
+      (candidate) =>
+        (!requiredKind || candidate.kind === requiredKind) &&
+        result.filter((affix) => affix.kind === candidate.kind).length < 2,
     );
     if (allowed.length === 0) break;
     const strongestTier = getStrongestAffixTier(level);
@@ -681,7 +770,9 @@ function isEquipmentItem(value: unknown): value is EquipmentItem {
     isOptionalFiniteNumber(value.maximumDamage) &&
     isOptionalFiniteNumber(value.attacksPerSecond) &&
     isOptionalFiniteNumber(value.criticalChance) &&
-    isOptionalFiniteNumber(value.armorPercent)
+    isOptionalFiniteNumber(value.armorPercent) &&
+    (value.rerollAttempts === undefined ||
+      (Number.isInteger(value.rerollAttempts) && Number(value.rerollAttempts) >= 0))
   );
 }
 

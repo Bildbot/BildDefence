@@ -20,6 +20,13 @@ import {
   equipItem,
   isEquipmentState,
   addMissingAffixes,
+  addRandomAffix,
+  getAddAffixCost,
+  getItemSalePrice,
+  getRerollAffixCost,
+  replaceItem,
+  rerollAffix,
+  sellItem,
   type EquipmentItem,
   type EquipmentState,
 } from '../../game/equipment/Equipment';
@@ -35,6 +42,7 @@ export type GameSettings = Readonly<{
 
 export type GameProgression = Readonly<{
   completedRuns: number;
+  gold: number;
   unspentStatPoints: number;
   guardianTotalExperience: number;
   maxUnlockedArena: number;
@@ -49,9 +57,15 @@ export type RunSettlement = Readonly<{
 }>;
 
 export type SaveDataV6 = Readonly<{
-  version: 7;
+  version: 8;
   settings: GameSettings;
   progression: GameProgression;
+}>;
+
+type LegacySaveDataV7 = Readonly<{
+  version: 7;
+  settings: GameSettings;
+  progression: Omit<GameProgression, 'gold'>;
 }>;
 
 type LegacySaveDataV6 = Readonly<{
@@ -120,6 +134,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
 
 export const DEFAULT_PROGRESSION: GameProgression = {
   completedRuns: 0,
+  gold: 0,
   unspentStatPoints: 0,
   guardianTotalExperience: 0,
   maxUnlockedArena: 1,
@@ -145,6 +160,11 @@ export class SaveRepository {
     try {
       const parsed: unknown = JSON.parse(raw);
       if (isSaveDataV6(parsed)) return parsed;
+      if (isLegacySaveDataV7(parsed)) {
+        const migrated = migrateLegacySaveV7(parsed);
+        await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
       if (isLegacySaveDataV6(parsed)) {
         const migrated = migrateLegacySaveV6(parsed);
         await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
@@ -270,6 +290,72 @@ export class SaveRepository {
     return nextProgression;
   }
 
+  async sellItem(itemId: string): Promise<GameProgression> {
+    let nextProgression = DEFAULT_PROGRESSION;
+    await this.mutate((current) => {
+      const item = current.progression.equipment.items.find((candidate) => candidate.id === itemId);
+      if (!item || Object.values(current.progression.equipment.equipped).includes(itemId)) {
+        nextProgression = current.progression;
+        return current;
+      }
+      nextProgression = {
+        ...current.progression,
+        gold: current.progression.gold + getItemSalePrice(item),
+        equipment: sellItem(current.progression.equipment, itemId),
+      };
+      return { ...current, progression: nextProgression };
+    });
+    return nextProgression;
+  }
+
+  async addItemAffix(itemId: string): Promise<GameProgression> {
+    let nextProgression = DEFAULT_PROGRESSION;
+    await this.mutate((current) => {
+      const item = current.progression.equipment.items.find((candidate) => candidate.id === itemId);
+      const cost = item ? getAddAffixCost(item) : null;
+      if (!item || cost === null || current.progression.gold < cost) {
+        nextProgression = current.progression;
+        return current;
+      }
+      const crafted = addRandomAffix(item);
+      if (crafted === item) {
+        nextProgression = current.progression;
+        return current;
+      }
+      nextProgression = {
+        ...current.progression,
+        gold: current.progression.gold - cost,
+        equipment: replaceItem(current.progression.equipment, crafted),
+      };
+      return { ...current, progression: nextProgression };
+    });
+    return nextProgression;
+  }
+
+  async rerollItemAffix(itemId: string, family: string): Promise<GameProgression> {
+    let nextProgression = DEFAULT_PROGRESSION;
+    await this.mutate((current) => {
+      const item = current.progression.equipment.items.find((candidate) => candidate.id === itemId);
+      const cost = item ? getRerollAffixCost(item) : 0;
+      if (!item || current.progression.gold < cost) {
+        nextProgression = current.progression;
+        return current;
+      }
+      const crafted = rerollAffix(item, family);
+      if (crafted === item) {
+        nextProgression = current.progression;
+        return current;
+      }
+      nextProgression = {
+        ...current.progression,
+        gold: current.progression.gold - cost,
+        equipment: replaceItem(current.progression.equipment, crafted),
+      };
+      return { ...current, progression: nextProgression };
+    });
+    return nextProgression;
+  }
+
   private async mutate(transform: (current: SaveDataV6) => SaveDataV6): Promise<void> {
     const operation = this.mutationQueue.then(async () => {
       const current = await this.load();
@@ -281,12 +367,21 @@ export class SaveRepository {
   }
 }
 
+function migrateLegacySaveV7(save: LegacySaveDataV7): SaveDataV6 {
+  return {
+    ...save,
+    version: SAVE_VERSION,
+    progression: { ...save.progression, gold: 0 },
+  };
+}
+
 function migrateLegacySaveV6(save: LegacySaveDataV6): SaveDataV6 {
   return {
     ...save,
     version: SAVE_VERSION,
     progression: {
       ...save.progression,
+      gold: 0,
       equipment: {
         ...save.progression.equipment,
         items: save.progression.equipment.items.map(addMissingAffixes),
@@ -299,7 +394,7 @@ function migrateLegacySaveV5(save: LegacySaveDataV5): SaveDataV6 {
   return {
     version: SAVE_VERSION,
     settings: save.settings,
-    progression: { ...save.progression, equipment: DEFAULT_EQUIPMENT },
+    progression: { ...save.progression, gold: 0, equipment: DEFAULT_EQUIPMENT },
   };
 }
 
@@ -340,6 +435,7 @@ function migrateLegacySaveV4(save: LegacySaveDataV4): SaveDataV6 {
     settings: save.settings,
     progression: {
       ...save.progression,
+      gold: 0,
       unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
       guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
       equipment: DEFAULT_EQUIPMENT,
@@ -356,6 +452,7 @@ function migrateLegacySaveV3(save: LegacySaveDataV3): SaveDataV6 {
     settings: save.settings,
     progression: {
       ...save.progression,
+      gold: 0,
       unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
       guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
       maxUnlockedArena: 1,
@@ -373,6 +470,7 @@ function migrateLegacySaveV2(save: LegacySaveDataV2): SaveDataV6 {
     settings: save.settings,
     progression: {
       ...save.progression,
+      gold: 0,
       unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
       guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
       guardianTotalExperience: 0,
@@ -388,6 +486,7 @@ function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV6 {
     settings: save.settings,
     progression: {
       completedRuns: save.progression.completedRuns,
+      gold: 0,
       unspentStatPoints: 0,
       guardianTotalExperience: 0,
       maxUnlockedArena: 1,
@@ -403,6 +502,23 @@ function isSaveDataV6(value: unknown): value is SaveDataV6 {
   const { settings, progression } = value;
   return (
     isSettings(settings) &&
+    isNonNegativeInteger(progression.completedRuns) &&
+    isNonNegativeInteger(progression.gold) &&
+    isNonNegativeInteger(progression.unspentStatPoints) &&
+    isValidTotalExperience(progression.guardianTotalExperience) &&
+    isArenaLevel(progression.maxUnlockedArena) &&
+    isGuardianStatUpgrades(progression.guardianStatUpgrades) &&
+    isEquipmentState(progression.equipment)
+  );
+}
+
+function isLegacySaveDataV7(value: unknown): value is LegacySaveDataV7 {
+  if (!isRecord(value) || value.version !== 7) return false;
+  if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
+  const { settings, progression } = value;
+  return (
+    isSettings(settings) &&
+    !('gold' in progression) &&
     isNonNegativeInteger(progression.completedRuns) &&
     isNonNegativeInteger(progression.unspentStatPoints) &&
     isValidTotalExperience(progression.guardianTotalExperience) &&

@@ -27,6 +27,9 @@ import {
   CheckCircle2,
   Clock,
   Compass,
+  Coins,
+  Hammer,
+  Trash2,
 } from 'lucide-react';
 import { MAX_ARENA_LEVEL, getArenaBalance } from '../content/arenaBalance';
 import { FIRST_COMBAT } from '../content/firstCombat';
@@ -37,6 +40,9 @@ import {
   SLOT_LABELS,
   applyEquipmentToGuardian,
   generateVictoryLoot,
+  getAddAffixCost,
+  getItemSalePrice,
+  getRerollAffixCost,
   getEquippedItem,
   orderAffixes,
   type EquipmentItem,
@@ -202,7 +208,10 @@ export function App({ session, bridge, platform, saves }: Props) {
           combat?.guardianTotalExperience ?? progression.guardianTotalExperience,
       });
       const withLoot = await saves.addVictoryLoot(generatedRewards);
-      setProgression({ ...withLoot, maxUnlockedArena: settled.maxUnlockedArena });
+      setProgression({
+        ...withLoot,
+        maxUnlockedArena: settled.maxUnlockedArena,
+      });
       setRewards(generatedRewards);
 
       void confetti({
@@ -221,6 +230,24 @@ export function App({ session, bridge, platform, saves }: Props) {
     const nextProgression = await saves.equipItem(itemId);
     setProgression(nextProgression);
     if (settings.vibration) void platform.haptic();
+  };
+
+  const sellInventoryItem = async (itemId: string) => {
+    const item = progression.equipment.items.find((candidate) => candidate.id === itemId);
+    if (!item || !window.confirm(`Продать «${item.name}» за ${getItemSalePrice(item)} золота?`))
+      return;
+    soundFX.playClick();
+    setProgression(await saves.sellItem(itemId));
+  };
+
+  const addInventoryAffix = async (itemId: string) => {
+    soundFX.playClick();
+    setProgression(await saves.addItemAffix(itemId));
+  };
+
+  const rerollInventoryAffix = async (itemId: string, family: string) => {
+    soundFX.playClick();
+    setProgression(await saves.rerollItemAffix(itemId, family));
   };
 
   const spendStatPoint = async (stat: GuardianStatUpgradeKey) => {
@@ -755,7 +782,11 @@ export function App({ session, bridge, platform, saves }: Props) {
       {inventoryOpen && (
         <InventoryDialog
           equipment={progression.equipment}
+          gold={progression.gold}
           onEquip={(itemId) => void equip(itemId)}
+          onSell={(itemId) => void sellInventoryItem(itemId)}
+          onAddAffix={(itemId) => void addInventoryAffix(itemId)}
+          onRerollAffix={(itemId, family) => void rerollInventoryAffix(itemId, family)}
           onClose={() => {
             soundFX.playClick();
             setInventoryOpen(false);
@@ -833,7 +864,22 @@ type EquipmentDialogProps = {
   onClose: () => void;
 };
 
-function InventoryDialog({ equipment, onEquip, onClose }: EquipmentDialogProps) {
+type InventoryDialogProps = EquipmentDialogProps & {
+  gold: number;
+  onSell: (itemId: string) => void;
+  onAddAffix: (itemId: string) => void;
+  onRerollAffix: (itemId: string, family: string) => void;
+};
+
+function InventoryDialog({
+  equipment,
+  gold,
+  onEquip,
+  onSell,
+  onAddAffix,
+  onRerollAffix,
+  onClose,
+}: InventoryDialogProps) {
   const [activeTab, setActiveTab] = useState<'backpack' | 'equipment'>('backpack');
   const [activeFilter, setActiveFilter] = useState<EquipmentSlot | 'all'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -868,6 +914,12 @@ function InventoryDialog({ equipment, onEquip, onClose }: EquipmentDialogProps) 
           <button className="dialog-close-btn" type="button" onClick={onClose}>
             <X size={18} />
           </button>
+        </div>
+
+        <div className="gold-balance" aria-label={`Золото: ${gold}`}>
+          <Coins size={17} />
+          <strong>{gold}</strong>
+          <span>золота</span>
         </div>
 
         <div className="inventory-tabs" role="tablist" aria-label="Раздел инвентаря">
@@ -978,10 +1030,17 @@ function InventoryDialog({ equipment, onEquip, onClose }: EquipmentDialogProps) 
               <ItemDetails
                 item={selected}
                 equipped={getEquippedItem(equipment, selected.slot)?.id === selected.id}
+                gold={gold}
                 onEquip={(itemId) => {
                   onEquip(itemId);
                   setSelectedId(null);
                 }}
+                onSell={(itemId) => {
+                  onSell(itemId);
+                  setSelectedId(null);
+                }}
+                onAddAffix={onAddAffix}
+                onRerollAffix={onRerollAffix}
               />
             </div>
           </div>
@@ -1095,11 +1154,19 @@ function ItemCard({ item, selected, equipped, onClick }: ItemCardProps) {
 function ItemDetails({
   item,
   equipped,
+  gold,
   onEquip,
+  onSell,
+  onAddAffix,
+  onRerollAffix,
 }: {
   item: EquipmentItem;
   equipped: boolean;
+  gold?: number;
   onEquip: (itemId: string) => void;
+  onSell?: (itemId: string) => void;
+  onAddAffix?: (itemId: string) => void;
+  onRerollAffix?: (itemId: string, family: string) => void;
 }) {
   return (
     <article className={`item-details modern-item-details rarity-${item.rarity}`}>
@@ -1133,6 +1200,17 @@ function ItemDetails({
                   <strong className="affix-name">{affix.label}</strong>
                   <b className="affix-value">{affix.valueLabel}</b>
                 </div>
+                {onRerollAffix && gold !== undefined && (
+                  <button
+                    className="craft-affix-button"
+                    type="button"
+                    disabled={gold < getRerollAffixCost(item)}
+                    onClick={() => onRerollAffix(item.id, affix.family)}
+                  >
+                    <Hammer size={12} />
+                    Заменить · {getRerollAffixCost(item)}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -1140,6 +1218,17 @@ function ItemDetails({
       )}
 
       {item.affixes.length === 0 && <p className="no-affixes">Обычный предмет без аффиксов</p>}
+
+      {onAddAffix && gold !== undefined && getAddAffixCost(item) !== null && (
+        <button
+          className="button secondary w-full mt-3"
+          type="button"
+          disabled={gold < (getAddAffixCost(item) ?? 0)}
+          onClick={() => onAddAffix(item.id)}
+        >
+          <Hammer size={15} /> Добавить аффикс · {getAddAffixCost(item)}
+        </button>
+      )}
 
       <button
         className={`button ${equipped ? 'ghost' : 'secondary'} w-full mt-3`}
@@ -1149,6 +1238,18 @@ function ItemDetails({
       >
         {equipped ? 'Уже надето на стража' : 'Надеть предмет'}
       </button>
+
+      {onSell && (
+        <button
+          className="button danger w-full mt-2"
+          type="button"
+          disabled={equipped}
+          onClick={() => onSell(item.id)}
+        >
+          <Trash2 size={15} />{' '}
+          {equipped ? 'Сначала снимите предмет' : `Продать · ${getItemSalePrice(item)}`}
+        </button>
+      )}
     </article>
   );
 }
