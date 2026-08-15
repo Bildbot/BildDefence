@@ -27,6 +27,16 @@ test('persists settings across reloads', async ({ page }) => {
   await expect(page.getByRole('checkbox', { name: 'Вибрация' })).not.toBeChecked();
 });
 
+test('shows the six equipment slots and the starting bow', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Инвентарь' }).click();
+  await expect(page.getByRole('dialog', { name: 'Инвентарь' })).toBeVisible();
+  await expect(page.getByText('Короткий лук', { exact: true }).first()).toBeVisible();
+  for (const slot of ['Лук', 'Колчан', 'Шлем', 'Броня', 'Перчатки', 'Штаны']) {
+    await expect(page.getByRole('button').filter({ hasText: slot }).first()).toBeVisible();
+  }
+});
+
 test('keeps the same logical arena on desktop and mobile', async ({ page }) => {
   await page.goto('/');
   const frame = page.getByTestId('game-frame');

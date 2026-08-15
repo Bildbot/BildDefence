@@ -20,8 +20,9 @@ describe('GuardianStats', () => {
     expect(upgraded).toMatchObject({
       maxHealth: 110,
       healthRegenPerSecond: 0.6,
-      damage: 22,
-      attacksPerSecond: 1.325,
+      minimumDamage: 15,
+      maximumDamage: 21,
+      attacksPerSecond: 1.625,
       criticalChance: 0.08,
       criticalMultiplier: 1.65,
     });

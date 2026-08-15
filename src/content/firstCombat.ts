@@ -2,7 +2,8 @@ export type GuardianDefinition = Readonly<{
   maxHealth: number;
   armorPercent: number;
   healthRegenPerSecond: number;
-  damage: number;
+  minimumDamage: number;
+  maximumDamage: number;
   attacksPerSecond: number;
   criticalChance: number;
   criticalMultiplier: number;
@@ -37,8 +38,9 @@ export const FIRST_COMBAT: CombatDefinition = {
     maxHealth: 100,
     armorPercent: 0,
     healthRegenPerSecond: 0.5,
-    damage: 20,
-    attacksPerSecond: 1.25,
+    minimumDamage: 13,
+    maximumDamage: 19,
+    attacksPerSecond: 1.55,
     criticalChance: 0.05,
     criticalMultiplier: 1.5,
     projectileSpeed: 430,

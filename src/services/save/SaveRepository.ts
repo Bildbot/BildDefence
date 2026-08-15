@@ -13,6 +13,15 @@ import {
   type GuardianStatUpgradeKey,
   type GuardianStatUpgrades,
 } from '../../game/progression/GuardianStats';
+import {
+  DEFAULT_EQUIPMENT,
+  addItems,
+  applyEquipmentToGuardian,
+  equipItem,
+  isEquipmentState,
+  type EquipmentItem,
+  type EquipmentState,
+} from '../../game/equipment/Equipment';
 import { SAVE_KEY, SAVE_VERSION } from '../../shared/constants';
 import type { StorageAdapter } from '../storage/StorageAdapter';
 
@@ -29,6 +38,7 @@ export type GameProgression = Readonly<{
   guardianTotalExperience: number;
   maxUnlockedArena: number;
   guardianStatUpgrades: GuardianStatUpgrades;
+  equipment: EquipmentState;
 }>;
 
 export type RunSettlement = Readonly<{
@@ -37,10 +47,16 @@ export type RunSettlement = Readonly<{
   guardianTotalExperience: number;
 }>;
 
-export type SaveDataV5 = Readonly<{
-  version: 5;
+export type SaveDataV6 = Readonly<{
+  version: 6;
   settings: GameSettings;
   progression: GameProgression;
+}>;
+
+type LegacySaveDataV5 = Readonly<{
+  version: 5;
+  settings: GameSettings;
+  progression: Omit<GameProgression, 'equipment'>;
 }>;
 
 type LegacyGuardianStatUpgrades = Readonly<
@@ -50,7 +66,7 @@ type LegacyGuardianStatUpgrades = Readonly<
 type LegacySaveDataV4 = Readonly<{
   version: 4;
   settings: GameSettings;
-  progression: Omit<GameProgression, 'guardianStatUpgrades'> &
+  progression: Omit<GameProgression, 'guardianStatUpgrades' | 'equipment'> &
     Readonly<{ guardianStatUpgrades: LegacyGuardianStatUpgrades }>;
 }>;
 
@@ -96,9 +112,10 @@ export const DEFAULT_PROGRESSION: GameProgression = {
   guardianTotalExperience: 0,
   maxUnlockedArena: 1,
   guardianStatUpgrades: DEFAULT_GUARDIAN_STAT_UPGRADES,
+  equipment: DEFAULT_EQUIPMENT,
 };
 
-export const DEFAULT_SAVE: SaveDataV5 = {
+export const DEFAULT_SAVE: SaveDataV6 = {
   version: SAVE_VERSION,
   settings: DEFAULT_SETTINGS,
   progression: DEFAULT_PROGRESSION,
@@ -109,13 +126,18 @@ export class SaveRepository {
 
   constructor(private readonly storage: StorageAdapter) {}
 
-  async load(): Promise<SaveDataV5> {
+  async load(): Promise<SaveDataV6> {
     const raw = await this.storage.read(SAVE_KEY);
     if (raw === null) return DEFAULT_SAVE;
 
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (isSaveDataV5(parsed)) return parsed;
+      if (isSaveDataV6(parsed)) return parsed;
+      if (isLegacySaveDataV5(parsed)) {
+        const migrated = migrateLegacySaveV5(parsed);
+        await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
       if (isLegacySaveDataV4(parsed)) {
         const migrated = migrateLegacySaveV4(parsed);
         await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
@@ -186,7 +208,7 @@ export class SaveRepository {
       if (current.progression.unspentStatPoints === 0) return current;
       if (
         !canUpgradeGuardianStat(
-          FIRST_COMBAT.guardian,
+          applyEquipmentToGuardian(FIRST_COMBAT.guardian, current.progression.equipment),
           current.progression.guardianStatUpgrades,
           stat,
         )
@@ -207,7 +229,31 @@ export class SaveRepository {
     return nextProgression;
   }
 
-  private async mutate(transform: (current: SaveDataV5) => SaveDataV5): Promise<void> {
+  async addVictoryLoot(items: readonly EquipmentItem[]): Promise<GameProgression> {
+    let nextProgression = DEFAULT_PROGRESSION;
+    await this.mutate((current) => {
+      nextProgression = {
+        ...current.progression,
+        equipment: addItems(current.progression.equipment, items),
+      };
+      return { ...current, progression: nextProgression };
+    });
+    return nextProgression;
+  }
+
+  async equipItem(itemId: string): Promise<GameProgression> {
+    let nextProgression = DEFAULT_PROGRESSION;
+    await this.mutate((current) => {
+      nextProgression = {
+        ...current.progression,
+        equipment: equipItem(current.progression.equipment, itemId),
+      };
+      return { ...current, progression: nextProgression };
+    });
+    return nextProgression;
+  }
+
+  private async mutate(transform: (current: SaveDataV6) => SaveDataV6): Promise<void> {
     const operation = this.mutationQueue.then(async () => {
       const current = await this.load();
       const next = transform(current);
@@ -216,6 +262,14 @@ export class SaveRepository {
     this.mutationQueue = operation.catch(() => undefined);
     await operation;
   }
+}
+
+function migrateLegacySaveV5(save: LegacySaveDataV5): SaveDataV6 {
+  return {
+    version: SAVE_VERSION,
+    settings: save.settings,
+    progression: { ...save.progression, equipment: DEFAULT_EQUIPMENT },
+  };
 }
 
 function validateRunSettlement(settlement: RunSettlement): void {
@@ -246,7 +300,7 @@ function migrateGuardianStatUpgrades(upgrades: LegacyGuardianStatUpgrades): Guar
   };
 }
 
-function migrateLegacySaveV4(save: LegacySaveDataV4): SaveDataV5 {
+function migrateLegacySaveV4(save: LegacySaveDataV4): SaveDataV6 {
   const removedStatPoints =
     save.progression.guardianStatUpgrades.maxBarrier +
     save.progression.guardianStatUpgrades.armorPercent;
@@ -257,11 +311,12 @@ function migrateLegacySaveV4(save: LegacySaveDataV4): SaveDataV5 {
       ...save.progression,
       unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
       guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
+      equipment: DEFAULT_EQUIPMENT,
     },
   };
 }
 
-function migrateLegacySaveV3(save: LegacySaveDataV3): SaveDataV5 {
+function migrateLegacySaveV3(save: LegacySaveDataV3): SaveDataV6 {
   const removedStatPoints =
     save.progression.guardianStatUpgrades.maxBarrier +
     save.progression.guardianStatUpgrades.armorPercent;
@@ -273,11 +328,12 @@ function migrateLegacySaveV3(save: LegacySaveDataV3): SaveDataV5 {
       unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
       guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
       maxUnlockedArena: 1,
+      equipment: DEFAULT_EQUIPMENT,
     },
   };
 }
 
-function migrateLegacySaveV2(save: LegacySaveDataV2): SaveDataV5 {
+function migrateLegacySaveV2(save: LegacySaveDataV2): SaveDataV6 {
   const removedStatPoints =
     save.progression.guardianStatUpgrades.maxBarrier +
     save.progression.guardianStatUpgrades.armorPercent;
@@ -290,11 +346,12 @@ function migrateLegacySaveV2(save: LegacySaveDataV2): SaveDataV5 {
       guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
       guardianTotalExperience: 0,
       maxUnlockedArena: 1,
+      equipment: DEFAULT_EQUIPMENT,
     },
   };
 }
 
-function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV5 {
+function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV6 {
   return {
     version: SAVE_VERSION,
     settings: save.settings,
@@ -304,12 +361,28 @@ function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV5 {
       guardianTotalExperience: 0,
       maxUnlockedArena: 1,
       guardianStatUpgrades: { ...DEFAULT_GUARDIAN_STAT_UPGRADES },
+      equipment: DEFAULT_EQUIPMENT,
     },
   };
 }
 
-function isSaveDataV5(value: unknown): value is SaveDataV5 {
+function isSaveDataV6(value: unknown): value is SaveDataV6 {
   if (!isRecord(value) || value.version !== SAVE_VERSION) return false;
+  if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
+  const { settings, progression } = value;
+  return (
+    isSettings(settings) &&
+    isNonNegativeInteger(progression.completedRuns) &&
+    isNonNegativeInteger(progression.unspentStatPoints) &&
+    isValidTotalExperience(progression.guardianTotalExperience) &&
+    isArenaLevel(progression.maxUnlockedArena) &&
+    isGuardianStatUpgrades(progression.guardianStatUpgrades) &&
+    isEquipmentState(progression.equipment)
+  );
+}
+
+function isLegacySaveDataV5(value: unknown): value is LegacySaveDataV5 {
+  if (!isRecord(value) || value.version !== 5) return false;
   if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
   const { settings, progression } = value;
   return (

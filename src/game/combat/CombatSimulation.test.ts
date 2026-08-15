@@ -6,7 +6,8 @@ const guardian = {
   maxHealth: 100,
   armorPercent: 0,
   healthRegenPerSecond: 0,
-  damage: 100,
+  minimumDamage: 100,
+  maximumDamage: 100,
   attacksPerSecond: 10,
   criticalChance: 0,
   criticalMultiplier: 1.5,
@@ -92,7 +93,14 @@ describe('CombatSimulation', () => {
   it('finishes with defeat when a reached enemy drains guardian health', () => {
     const defeat: CombatDefinition = {
       ...fastVictory,
-      guardian: { ...guardian, maxHealth: 10, damage: 0, attacksPerSecond: 1, projectileSpeed: 1 },
+      guardian: {
+        ...guardian,
+        maxHealth: 10,
+        minimumDamage: 0,
+        maximumDamage: 0,
+        attacksPerSecond: 1,
+        projectileSpeed: 1,
+      },
       enemy: {
         ...fastVictory.enemy,
         maxHealth: 10,
@@ -119,7 +127,8 @@ describe('CombatSimulation', () => {
         maxHealth: 100,
         armorPercent: 0.5,
         healthRegenPerSecond: 1,
-        damage: 0,
+        minimumDamage: 0,
+        maximumDamage: 0,
       },
       enemy: {
         ...fastVictory.enemy,
@@ -143,7 +152,7 @@ describe('CombatSimulation', () => {
   it('caps physical damage reduction from armor at 75%', () => {
     const defence: CombatDefinition = {
       ...fastVictory,
-      guardian: { ...guardian, armorPercent: 1, damage: 0 },
+      guardian: { ...guardian, armorPercent: 1, minimumDamage: 0, maximumDamage: 0 },
       enemy: {
         ...fastVictory.enemy,
         speed: 1000,

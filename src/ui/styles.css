@@ -192,6 +192,116 @@ button {
   cursor: pointer;
 }
 
+.inventory-dialog,
+.reward-dialog {
+  width: min(100%, 390px);
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+}
+
+.equipment-slots,
+.reward-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.equipment-slots button,
+.item-card {
+  min-height: 64px;
+  padding: 9px;
+  border: 1px solid rgba(112, 212, 241, 0.18);
+  border-radius: 12px;
+  color: #dff8ff;
+  background: rgba(8, 24, 34, 0.9);
+  text-align: left;
+  cursor: pointer;
+}
+
+.equipment-slots span,
+.item-card span,
+.item-card small,
+.item-details span {
+  display: block;
+  color: #789baa;
+  font-size: 10px;
+}
+
+.equipment-slots strong,
+.item-card strong {
+  display: block;
+  margin: 3px 0;
+  font-size: 12px;
+}
+
+.inventory-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  max-height: 184px;
+  margin-bottom: 12px;
+  overflow-y: auto;
+}
+
+.reward-items {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reward-items .item-card {
+  min-width: 0;
+}
+
+.item-card.selected {
+  outline: 2px solid #67d8f1;
+  outline-offset: 1px;
+}
+
+.item-card.rarity-magic,
+.item-details.rarity-magic {
+  border-color: #668cff;
+}
+
+.item-card.rarity-rare,
+.item-details.rarity-rare {
+  border-color: #e8c85b;
+}
+
+.item-details {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid rgba(112, 212, 241, 0.22);
+  border-radius: 14px;
+  background: rgba(8, 24, 34, 0.94);
+  text-align: left;
+}
+
+.item-details > div {
+  margin-bottom: 8px;
+}
+
+.item-details dl {
+  margin: 0 0 10px;
+}
+
+.item-details dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.item-details dt {
+  color: #789baa;
+}
+
+.item-details dd {
+  margin: 0;
+  font-weight: 800;
+}
+
 .menu-overlay,
 .dialog-backdrop {
   position: absolute;

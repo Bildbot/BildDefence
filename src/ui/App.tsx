@@ -3,6 +3,15 @@ import { MAX_ARENA_LEVEL, getArenaBalance } from '../content/arenaBalance';
 import { FIRST_COMBAT } from '../content/firstCombat';
 import type { CombatSnapshot } from '../game/combat/CombatSimulation';
 import {
+  EQUIPMENT_SLOTS,
+  RARITY_LABELS,
+  SLOT_LABELS,
+  applyEquipmentToGuardian,
+  generateVictoryLoot,
+  getEquippedItem,
+  type EquipmentItem,
+} from '../game/equipment/Equipment';
+import {
   applyGuardianStatUpgrades,
   canUpgradeGuardianStat,
   type GuardianStatUpgradeKey,
@@ -36,16 +45,20 @@ export function App({ session, bridge, platform, saves }: Props) {
   const [selectedArena, setSelectedArena] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [rewards, setRewards] = useState<readonly EquipmentItem[] | null>(null);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [combat, setCombat] = useState<CombatSnapshot | null>(null);
   const [settlingRun, setSettlingRun] = useState(false);
   const [spendingStat, setSpendingStat] = useState<GuardianStatUpgradeKey | null>(null);
   const settingsOpenRef = useRef(settingsOpen);
   const statsOpenRef = useRef(statsOpen);
+  const inventoryOpenRef = useRef(inventoryOpen);
   const leaveConfirmOpenRef = useRef(leaveConfirmOpen);
 
+  const equippedGuardian = applyEquipmentToGuardian(FIRST_COMBAT.guardian, progression.equipment);
   const guardianStats = applyGuardianStatUpgrades(
-    FIRST_COMBAT.guardian,
+    equippedGuardian,
     progression.guardianStatUpgrades,
   );
 
@@ -56,6 +69,10 @@ export function App({ session, bridge, platform, saves }: Props) {
   useEffect(() => {
     statsOpenRef.current = statsOpen;
   }, [statsOpen]);
+
+  useEffect(() => {
+    inventoryOpenRef.current = inventoryOpen;
+  }, [inventoryOpen]);
 
   useEffect(() => {
     leaveConfirmOpenRef.current = leaveConfirmOpen;
@@ -76,6 +93,7 @@ export function App({ session, bridge, platform, saves }: Props) {
     const stopBack = platform.onBack(() => {
       if (settingsOpenRef.current) setSettingsOpen(false);
       else if (statsOpenRef.current) setStatsOpen(false);
+      else if (inventoryOpenRef.current) setInventoryOpen(false);
       else if (leaveConfirmOpenRef.current) setLeaveConfirmOpen(false);
       else if (session.getSnapshot().phase === 'running') session.pause();
       else if (session.getSnapshot().phase === 'paused') setLeaveConfirmOpen(true);
@@ -135,11 +153,37 @@ export function App({ session, bridge, platform, saves }: Props) {
     }
   };
 
+  const claimVictory = async () => {
+    if (settlingRun || state.phase !== 'finished' || state.result !== 'victory') return;
+    setSettlingRun(true);
+    try {
+      const arenaLevel = combat?.arenaLevel ?? state.arenaLevel ?? selectedArena;
+      const generatedRewards = generateVictoryLoot(arenaLevel, progression.completedRuns + 1);
+      const settled = await saves.settleRun({
+        arenaLevel,
+        result: 'victory',
+        guardianTotalExperience:
+          combat?.guardianTotalExperience ?? progression.guardianTotalExperience,
+      });
+      const withLoot = await saves.addVictoryLoot(generatedRewards);
+      setProgression({ ...withLoot, maxUnlockedArena: settled.maxUnlockedArena });
+      setRewards(generatedRewards);
+    } finally {
+      setSettlingRun(false);
+    }
+  };
+
+  const equip = async (itemId: string) => {
+    const nextProgression = await saves.equipItem(itemId);
+    setProgression(nextProgression);
+    if (settings.vibration) void platform.haptic();
+  };
+
   const spendStatPoint = async (stat: GuardianStatUpgradeKey) => {
     if (
       spendingStat !== null ||
       progression.unspentStatPoints === 0 ||
-      !canUpgradeGuardianStat(FIRST_COMBAT.guardian, progression.guardianStatUpgrades, stat)
+      !canUpgradeGuardianStat(equippedGuardian, progression.guardianStatUpgrades, stat)
     ) {
       return;
     }
@@ -157,7 +201,7 @@ export function App({ session, bridge, platform, saves }: Props) {
   const canSpendOn = (stat: GuardianStatUpgradeKey) =>
     progression.unspentStatPoints > 0 &&
     spendingStat === null &&
-    canUpgradeGuardianStat(FIRST_COMBAT.guardian, progression.guardianStatUpgrades, stat);
+    canUpgradeGuardianStat(equippedGuardian, progression.guardianStatUpgrades, stat);
 
   return (
     <main className="app-shell" data-platform={platform.kind}>
@@ -239,6 +283,13 @@ export function App({ session, bridge, platform, saves }: Props) {
               <button
                 className="button secondary"
                 type="button"
+                onClick={() => setInventoryOpen(true)}
+              >
+                Инвентарь
+              </button>
+              <button
+                className="button secondary"
+                type="button"
                 onClick={() => setSettingsOpen(true)}
               >
                 {strings.settings}
@@ -276,7 +327,7 @@ export function App({ session, bridge, platform, saves }: Props) {
             </div>
           </div>
         )}
-        {state.phase === 'finished' && (
+        {state.phase === 'finished' && rewards === null && (
           <div
             className={`menu-overlay compact result-${state.result ?? 'defeat'}`}
             role="dialog"
@@ -291,14 +342,25 @@ export function App({ session, bridge, platform, saves }: Props) {
               {state.result === 'victory' ? strings.victoryHint : strings.defeatHint}
             </p>
             <div className="menu-actions">
-              <button
-                className="button primary"
-                type="button"
-                disabled={settlingRun}
-                onClick={() => void settleFinishedRun('restart')}
-              >
-                {strings.restart}
-              </button>
+              {state.result === 'victory' ? (
+                <button
+                  className="button primary"
+                  type="button"
+                  disabled={settlingRun}
+                  onClick={() => void claimVictory()}
+                >
+                  Получить награду
+                </button>
+              ) : (
+                <button
+                  className="button primary"
+                  type="button"
+                  disabled={settlingRun}
+                  onClick={() => void settleFinishedRun('restart')}
+                >
+                  {strings.restart}
+                </button>
+              )}
               <button
                 className="button ghost"
                 type="button"
@@ -414,7 +476,7 @@ export function App({ session, bridge, platform, saves }: Props) {
               />
               <GuardianStat
                 label="Урон"
-                value={formatNumber(guardianStats.damage)}
+                value={`${formatNumber(guardianStats.minimumDamage)}–${formatNumber(guardianStats.maximumDamage)}`}
                 upgradeKey="damage"
                 canUpgrade={canSpendOn('damage')}
                 onUpgrade={spendStatPoint}
@@ -446,6 +508,24 @@ export function App({ session, bridge, platform, saves }: Props) {
             </button>
           </section>
         </div>
+      )}
+      {inventoryOpen && (
+        <InventoryDialog
+          equipment={progression.equipment}
+          onEquip={(itemId) => void equip(itemId)}
+          onClose={() => setInventoryOpen(false)}
+        />
+      )}
+      {rewards && (
+        <RewardDialog
+          rewards={rewards}
+          equipment={progression.equipment}
+          onEquip={(itemId) => void equip(itemId)}
+          onClose={() => {
+            setRewards(null);
+            session.exit();
+          }}
+        />
       )}
       {leaveConfirmOpen && (
         <div className="dialog-backdrop" role="presentation">
@@ -481,6 +561,165 @@ export function App({ session, bridge, platform, saves }: Props) {
         </div>
       )}
     </main>
+  );
+}
+
+type EquipmentDialogProps = {
+  equipment: GameProgression['equipment'];
+  onEquip: (itemId: string) => void;
+  onClose: () => void;
+};
+
+function InventoryDialog({ equipment, onEquip, onClose }: EquipmentDialogProps) {
+  const [selectedId, setSelectedId] = useState(equipment.items[0]?.id ?? null);
+  const selected = equipment.items.find((item) => item.id === selectedId);
+  return (
+    <div className="dialog-backdrop" role="presentation">
+      <section
+        className="dialog inventory-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Инвентарь"
+      >
+        <p className="eyebrow">ЭКИПИРОВКА</p>
+        <h2>Инвентарь</h2>
+        <div className="equipment-slots">
+          {EQUIPMENT_SLOTS.map((slot) => {
+            const item = getEquippedItem(equipment, slot);
+            return (
+              <button key={slot} type="button" onClick={() => item && setSelectedId(item.id)}>
+                <span>{SLOT_LABELS[slot]}</span>
+                <strong>{item?.name ?? 'Пусто'}</strong>
+              </button>
+            );
+          })}
+        </div>
+        <div className="inventory-items" role="list" aria-label="Предметы">
+          {equipment.items.map((item) => (
+            <ItemCard
+              key={item.id}
+              item={item}
+              selected={item.id === selectedId}
+              onClick={() => setSelectedId(item.id)}
+            />
+          ))}
+        </div>
+        {selected && (
+          <ItemDetails
+            item={selected}
+            equipped={getEquippedItem(equipment, selected.slot)?.id === selected.id}
+            onEquip={onEquip}
+          />
+        )}
+        <button className="button primary" type="button" onClick={onClose}>
+          Закрыть
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function RewardDialog({
+  rewards,
+  equipment,
+  onEquip,
+  onClose,
+}: EquipmentDialogProps & { rewards: readonly EquipmentItem[] }) {
+  const [selectedId, setSelectedId] = useState(rewards[0]?.id ?? null);
+  const selected = rewards.find((item) => item.id === selectedId);
+  return (
+    <div className="dialog-backdrop" role="presentation">
+      <section
+        className="dialog reward-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Награда за победу"
+      >
+        <p className="eyebrow">ПОБЕДА</p>
+        <h2>Награда за арену</h2>
+        <div className="reward-items">
+          {rewards.map((item) => (
+            <ItemCard
+              key={item.id}
+              item={item}
+              selected={item.id === selectedId}
+              onClick={() => setSelectedId(item.id)}
+            />
+          ))}
+        </div>
+        {selected && (
+          <ItemDetails
+            item={selected}
+            equipped={getEquippedItem(equipment, selected.slot)?.id === selected.id}
+            onEquip={onEquip}
+          />
+        )}
+        <button className="button primary" type="button" onClick={onClose}>
+          В главное меню
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function ItemCard({
+  item,
+  selected,
+  onClick,
+}: {
+  item: EquipmentItem;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`item-card rarity-${item.rarity}${selected ? ' selected' : ''}`}
+      type="button"
+      onClick={onClick}
+    >
+      <span>
+        {SLOT_LABELS[item.slot]} · ур. {item.level}
+      </span>
+      <strong>{item.name}</strong>
+      <small>{item.primaryValue}</small>
+    </button>
+  );
+}
+
+function ItemDetails({
+  item,
+  equipped,
+  onEquip,
+}: {
+  item: EquipmentItem;
+  equipped: boolean;
+  onEquip: (itemId: string) => void;
+}) {
+  return (
+    <article className={`item-details rarity-${item.rarity}`}>
+      <div>
+        <span>{RARITY_LABELS[item.rarity]}</span>
+        <strong>{item.name}</strong>
+      </div>
+      <dl>
+        <div>
+          <dt>{item.primaryLabel}</dt>
+          <dd>{item.primaryValue}</dd>
+        </div>
+        <div>
+          <dt>Аффиксы</dt>
+          <dd>{item.affixCount}</dd>
+        </div>
+      </dl>
+      <button
+        className="button secondary"
+        type="button"
+        disabled={equipped}
+        onClick={() => onEquip(item.id)}
+      >
+        {equipped ? 'Надето' : 'Надеть'}
+      </button>
+    </article>
   );
 }
 

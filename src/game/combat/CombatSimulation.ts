@@ -191,7 +191,9 @@ export class CombatSimulation {
     projectile.velocityX = (dx / distance) * this.definition.guardian.projectileSpeed;
     projectile.velocityY = (dy / distance) * this.definition.guardian.projectileSpeed;
     projectile.damage =
-      this.definition.guardian.damage *
+      (this.definition.guardian.minimumDamage +
+        this.random() *
+          (this.definition.guardian.maximumDamage - this.definition.guardian.minimumDamage)) *
       (this.random() < this.definition.guardian.criticalChance
         ? this.definition.guardian.criticalMultiplier
         : 1);

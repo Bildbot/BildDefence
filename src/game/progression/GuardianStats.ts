@@ -54,7 +54,16 @@ export function applyGuardianStatUpgrades(
       upgrades.healthRegenPerSecond,
       GUARDIAN_STAT_UPGRADE_RULES.healthRegenPerSecond,
     ),
-    damage: applyUpgrade(base.damage, upgrades.damage, GUARDIAN_STAT_UPGRADE_RULES.damage),
+    minimumDamage: applyUpgrade(
+      base.minimumDamage,
+      upgrades.damage,
+      GUARDIAN_STAT_UPGRADE_RULES.damage,
+    ),
+    maximumDamage: applyUpgrade(
+      base.maximumDamage,
+      upgrades.damage,
+      GUARDIAN_STAT_UPGRADE_RULES.damage,
+    ),
     attacksPerSecond: applyUpgrade(
       base.attacksPerSecond,
       upgrades.attacksPerSecond,
@@ -78,6 +87,7 @@ export function canUpgradeGuardianStat(
   upgrades: GuardianStatUpgrades,
   stat: GuardianStatUpgradeKey,
 ): boolean {
+  if (stat === 'damage') return true;
   const rule = GUARDIAN_STAT_UPGRADE_RULES[stat];
   if (rule.maximum === undefined) return true;
   return applyUpgrade(base[stat], upgrades[stat], rule) < rule.maximum;

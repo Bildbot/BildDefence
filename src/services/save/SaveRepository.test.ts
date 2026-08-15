@@ -3,6 +3,7 @@ import { getTotalExperienceToReachGuardianLevel } from '../../game/progression/G
 import { SAVE_KEY } from '../../shared/constants';
 import type { StorageAdapter } from '../storage/StorageAdapter';
 import { DEFAULT_SAVE, SaveRepository } from './SaveRepository';
+import { generateVictoryLoot } from '../../game/equipment/Equipment';
 
 class MemoryStorage implements StorageAdapter {
   readonly values = new Map<string, string>();
@@ -136,6 +137,17 @@ describe('SaveRepository', () => {
     expect(progression.unspentStatPoints).toBe(1);
     expect(progression.guardianStatUpgrades.damage).toBe(1);
     expect(progression.guardianStatUpgrades.maxHealth).toBe(0);
+  });
+
+  it('persists victory loot and equipped items', async () => {
+    const repository = new SaveRepository(new MemoryStorage());
+    const rewards = generateVictoryLoot(1, 1);
+    const withLoot = await repository.addVictoryLoot(rewards);
+    expect(withLoot.equipment.items).toHaveLength(4);
+    const reward = rewards[0];
+    if (!reward) return;
+    const equipped = await repository.equipItem(reward.id);
+    expect(equipped.equipment.equipped[reward.slot]).toBe(reward.id);
   });
 
   it('refunds points spent on removed barrier and armor stats during migration', async () => {
