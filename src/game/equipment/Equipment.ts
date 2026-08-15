@@ -3,6 +3,23 @@ export const EQUIPMENT_SLOTS = ['bow', 'quiver', 'helmet', 'chest', 'gloves', 'p
 export type EquipmentSlot = (typeof EQUIPMENT_SLOTS)[number];
 export type ItemRarity = 'normal' | 'magic' | 'rare';
 
+export type EquipmentAffix = Readonly<{
+  family: string;
+  kind: 'prefix' | 'suffix';
+  label: string;
+  tier: number;
+  value: number;
+  valueLabel: string;
+  modifier:
+    | 'maxHealth'
+    | 'healthRegen'
+    | 'armor'
+    | 'damage'
+    | 'attackSpeed'
+    | 'criticalChance'
+    | 'criticalMultiplier';
+}>;
+
 export type EquipmentItem = Readonly<{
   id: string;
   slot: EquipmentSlot;
@@ -11,6 +28,7 @@ export type EquipmentItem = Readonly<{
   rank: number;
   rarity: ItemRarity;
   affixCount: number;
+  affixes: readonly EquipmentAffix[];
   primaryLabel: string;
   primaryValue: string;
   minimumDamage?: number;
@@ -48,6 +66,7 @@ export const STARTING_BOW: EquipmentItem = {
   rank: 1,
   rarity: 'normal',
   affixCount: 0,
+  affixes: [],
   primaryLabel: 'Физический урон',
   primaryValue: '13–19 · 1,55/с',
   minimumDamage: 13,
@@ -99,17 +118,28 @@ export function applyEquipmentToGuardian(
   equipment: EquipmentState,
 ): GuardianDefinition {
   const bow = getEquippedItem(equipment, 'bow');
-  const armorPercent = EQUIPMENT_SLOTS.reduce(
-    (total, slot) => total + (getEquippedItem(equipment, slot)?.armorPercent ?? 0),
-    0,
+  const equippedItems = EQUIPMENT_SLOTS.map((slot) => getEquippedItem(equipment, slot)).filter(
+    (item): item is EquipmentItem => item !== undefined,
   );
+  const affixes = equippedItems.flatMap((item) => item.affixes);
+  const modifierTotal = (modifier: EquipmentAffix['modifier']) =>
+    affixes
+      .filter((affix) => affix.modifier === modifier)
+      .reduce((total, affix) => total + affix.value, 0);
+  const baseArmor = equippedItems.reduce((total, item) => total + (item.armorPercent ?? 0), 0);
+  const damageMultiplier = 1 + modifierTotal('damage');
+  const attackSpeedMultiplier = 1 + modifierTotal('attackSpeed');
   return {
     ...guardian,
-    minimumDamage: bow?.minimumDamage ?? guardian.minimumDamage,
-    maximumDamage: bow?.maximumDamage ?? guardian.maximumDamage,
-    attacksPerSecond: bow?.attacksPerSecond ?? guardian.attacksPerSecond,
-    criticalChance: bow?.criticalChance ?? guardian.criticalChance,
-    armorPercent,
+    maxHealth: guardian.maxHealth + modifierTotal('maxHealth'),
+    healthRegenPerSecond: guardian.healthRegenPerSecond + modifierTotal('healthRegen'),
+    minimumDamage: Math.round((bow?.minimumDamage ?? guardian.minimumDamage) * damageMultiplier),
+    maximumDamage: Math.round((bow?.maximumDamage ?? guardian.maximumDamage) * damageMultiplier),
+    attacksPerSecond: (bow?.attacksPerSecond ?? guardian.attacksPerSecond) * attackSpeedMultiplier,
+    criticalChance:
+      (bow?.criticalChance ?? guardian.criticalChance) + modifierTotal('criticalChance'),
+    criticalMultiplier: guardian.criticalMultiplier + modifierTotal('criticalMultiplier'),
+    armorPercent: baseArmor + modifierTotal('armor'),
   };
 }
 
@@ -132,6 +162,7 @@ function createItem(
         : 3 + Math.floor(random() * 2);
   const bases = BASE_NAMES[slot];
   const baseName = bases[Math.floor(random() * bases.length)] ?? SLOT_LABELS[slot];
+  const affixes = generateAffixes(slot, level, affixCount, random);
   return {
     id: `drop-${runId}-${level}-${index}`,
     slot,
@@ -140,7 +171,138 @@ function createItem(
     rank,
     rarity,
     affixCount,
+    affixes,
     ...getPrimaryStat(slot, rank, baseName),
+  };
+}
+
+type AffixDefinition = Readonly<{
+  family: string;
+  kind: EquipmentAffix['kind'];
+  label: string;
+  modifier: EquipmentAffix['modifier'];
+  valueAtTier: (power: number) => number;
+  format: (value: number) => string;
+}>;
+
+const percent = (value: number) => `+${Math.round(value * 100)}%`;
+const number = (value: number) => `+${value.toFixed(1).replace('.', ',')}`;
+
+const OFFENSIVE_AFFIXES: readonly AffixDefinition[] = [
+  {
+    family: 'damage',
+    kind: 'prefix',
+    label: 'Увеличение физического урона',
+    modifier: 'damage',
+    valueAtTier: (power) => (3 + power * 2) / 100,
+    format: percent,
+  },
+  {
+    family: 'attack-speed',
+    kind: 'suffix',
+    label: 'Скорость атаки',
+    modifier: 'attackSpeed',
+    valueAtTier: (power) => (2 + power) / 100,
+    format: percent,
+  },
+  {
+    family: 'critical-chance',
+    kind: 'suffix',
+    label: 'Шанс критического удара',
+    modifier: 'criticalChance',
+    valueAtTier: (power) => (0.5 + power * 0.35) / 100,
+    format: percent,
+  },
+  {
+    family: 'critical-multiplier',
+    kind: 'suffix',
+    label: 'Множитель критического удара',
+    modifier: 'criticalMultiplier',
+    valueAtTier: (power) => (4 + power * 2) / 100,
+    format: percent,
+  },
+  {
+    family: 'vitality',
+    kind: 'prefix',
+    label: 'Максимум здоровья',
+    modifier: 'maxHealth',
+    valueAtTier: (power) => 3 + power * 2,
+    format: (value) => `+${value}`,
+  },
+];
+
+const DEFENSIVE_AFFIXES: readonly AffixDefinition[] = [
+  {
+    family: 'vitality',
+    kind: 'prefix',
+    label: 'Максимум здоровья',
+    modifier: 'maxHealth',
+    valueAtTier: (power) => 3 + power * 2,
+    format: (value) => `+${value}`,
+  },
+  {
+    family: 'armor',
+    kind: 'prefix',
+    label: 'Дополнительная броня',
+    modifier: 'armor',
+    valueAtTier: (power) => (0.4 + power * 0.3) / 100,
+    format: percent,
+  },
+  {
+    family: 'regeneration',
+    kind: 'suffix',
+    label: 'Восстановление здоровья в секунду',
+    modifier: 'healthRegen',
+    valueAtTier: (power) => 0.05 + power * 0.03,
+    format: number,
+  },
+  {
+    family: 'physical-reduction',
+    kind: 'suffix',
+    label: 'Снижение физического урона',
+    modifier: 'armor',
+    valueAtTier: (power) => (0.3 + power * 0.2) / 100,
+    format: percent,
+  },
+];
+
+function generateAffixes(
+  slot: EquipmentSlot,
+  level: number,
+  count: number,
+  random: () => number,
+): readonly EquipmentAffix[] {
+  const pool =
+    slot === 'bow' || slot === 'quiver'
+      ? OFFENSIVE_AFFIXES
+      : slot === 'gloves'
+        ? [...DEFENSIVE_AFFIXES, ...OFFENSIVE_AFFIXES.slice(1, 3)]
+        : DEFENSIVE_AFFIXES;
+  const available = [...pool];
+  const result: EquipmentAffix[] = [];
+  while (result.length < count && available.length > 0) {
+    const allowed = available.filter(
+      (candidate) => result.filter((affix) => affix.kind === candidate.kind).length < 2,
+    );
+    if (allowed.length === 0) break;
+    const definition = allowed[Math.floor(random() * allowed.length)] ?? allowed[0];
+    if (!definition) break;
+    available.splice(available.indexOf(definition), 1);
+    const strongestTier = Math.max(1, 10 - Math.floor((level - 1) / 10));
+    const tierRange = 11 - strongestTier;
+    const tier = strongestTier + Math.floor(Math.pow(random(), 0.35) * tierRange);
+    const power = 11 - tier;
+    const value = definition.valueAtTier(power);
+    result.push({ ...definition, tier, value, valueLabel: definition.format(value) });
+  }
+  return result;
+}
+
+export function addMissingAffixes(item: Omit<EquipmentItem, 'affixes'>): EquipmentItem {
+  const seed = [...item.id].reduce((total, character) => total * 31 + character.charCodeAt(0), 7);
+  return {
+    ...item,
+    affixes: generateAffixes(item.slot, item.level, item.affixCount, createRandom(seed)),
   };
 }
 
@@ -206,6 +368,9 @@ function isEquipmentItem(value: unknown): value is EquipmentItem {
     Number.isInteger(value.rank) &&
     (value.rarity === 'normal' || value.rarity === 'magic' || value.rarity === 'rare') &&
     Number.isInteger(value.affixCount) &&
+    Array.isArray(value.affixes) &&
+    value.affixes.length === value.affixCount &&
+    value.affixes.every(isEquipmentAffix) &&
     typeof value.primaryLabel === 'string' &&
     typeof value.primaryValue === 'string' &&
     isOptionalFiniteNumber(value.minimumDamage) &&
@@ -213,6 +378,28 @@ function isEquipmentItem(value: unknown): value is EquipmentItem {
     isOptionalFiniteNumber(value.attacksPerSecond) &&
     isOptionalFiniteNumber(value.criticalChance) &&
     isOptionalFiniteNumber(value.armorPercent)
+  );
+}
+
+function isEquipmentAffix(value: unknown): value is EquipmentAffix {
+  return (
+    isRecord(value) &&
+    typeof value.family === 'string' &&
+    (value.kind === 'prefix' || value.kind === 'suffix') &&
+    typeof value.label === 'string' &&
+    Number.isInteger(value.tier) &&
+    typeof value.value === 'number' &&
+    Number.isFinite(value.value) &&
+    typeof value.valueLabel === 'string' &&
+    [
+      'maxHealth',
+      'healthRegen',
+      'armor',
+      'damage',
+      'attackSpeed',
+      'criticalChance',
+      'criticalMultiplier',
+    ].includes(value.modifier as string)
   );
 }
 

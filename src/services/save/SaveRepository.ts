@@ -19,6 +19,7 @@ import {
   applyEquipmentToGuardian,
   equipItem,
   isEquipmentState,
+  addMissingAffixes,
   type EquipmentItem,
   type EquipmentState,
 } from '../../game/equipment/Equipment';
@@ -48,9 +49,20 @@ export type RunSettlement = Readonly<{
 }>;
 
 export type SaveDataV6 = Readonly<{
-  version: 6;
+  version: 7;
   settings: GameSettings;
   progression: GameProgression;
+}>;
+
+type LegacySaveDataV6 = Readonly<{
+  version: 6;
+  settings: GameSettings;
+  progression: Omit<GameProgression, 'equipment'> & {
+    equipment: Readonly<{
+      items: readonly Omit<EquipmentItem, 'affixes'>[];
+      equipped: EquipmentState['equipped'];
+    }>;
+  };
 }>;
 
 type LegacySaveDataV5 = Readonly<{
@@ -133,6 +145,11 @@ export class SaveRepository {
     try {
       const parsed: unknown = JSON.parse(raw);
       if (isSaveDataV6(parsed)) return parsed;
+      if (isLegacySaveDataV6(parsed)) {
+        const migrated = migrateLegacySaveV6(parsed);
+        await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
       if (isLegacySaveDataV5(parsed)) {
         const migrated = migrateLegacySaveV5(parsed);
         await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
@@ -264,6 +281,20 @@ export class SaveRepository {
   }
 }
 
+function migrateLegacySaveV6(save: LegacySaveDataV6): SaveDataV6 {
+  return {
+    ...save,
+    version: SAVE_VERSION,
+    progression: {
+      ...save.progression,
+      equipment: {
+        ...save.progression.equipment,
+        items: save.progression.equipment.items.map(addMissingAffixes),
+      },
+    },
+  };
+}
+
 function migrateLegacySaveV5(save: LegacySaveDataV5): SaveDataV6 {
   return {
     version: SAVE_VERSION,
@@ -378,6 +409,27 @@ function isSaveDataV6(value: unknown): value is SaveDataV6 {
     isArenaLevel(progression.maxUnlockedArena) &&
     isGuardianStatUpgrades(progression.guardianStatUpgrades) &&
     isEquipmentState(progression.equipment)
+  );
+}
+
+function isLegacySaveDataV6(value: unknown): value is LegacySaveDataV6 {
+  if (!isRecord(value) || value.version !== 6) return false;
+  if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
+  const { settings, progression } = value;
+  if (
+    !isRecord(progression.equipment) ||
+    !Array.isArray(progression.equipment.items) ||
+    !isRecord(progression.equipment.equipped)
+  )
+    return false;
+  return (
+    isSettings(settings) &&
+    isNonNegativeInteger(progression.completedRuns) &&
+    isNonNegativeInteger(progression.unspentStatPoints) &&
+    isValidTotalExperience(progression.guardianTotalExperience) &&
+    isArenaLevel(progression.maxUnlockedArena) &&
+    isGuardianStatUpgrades(progression.guardianStatUpgrades) &&
+    progression.equipment.items.every((item) => isRecord(item) && !('affixes' in item))
   );
 }
 

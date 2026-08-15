@@ -150,6 +150,28 @@ describe('SaveRepository', () => {
     expect(equipped.equipment.equipped[reward.slot]).toBe(reward.id);
   });
 
+  it('restores real affixes for items saved by version 6', async () => {
+    const storage = new MemoryStorage();
+    const reward = generateVictoryLoot(21, 4).find((item) => item.affixCount > 0);
+    if (!reward) return;
+    const legacyReward = { ...reward } as Record<string, unknown>;
+    delete legacyReward.affixes;
+    storage.values.set(
+      SAVE_KEY,
+      JSON.stringify({
+        ...DEFAULT_SAVE,
+        version: 6,
+        progression: {
+          ...DEFAULT_SAVE.progression,
+          equipment: { items: [legacyReward], equipped: { [reward.slot]: reward.id } },
+        },
+      }),
+    );
+    const migrated = await new SaveRepository(storage).load();
+    expect(migrated.version).toBe(7);
+    expect(migrated.progression.equipment.items[0]?.affixes).toHaveLength(reward.affixCount);
+  });
+
   it('refunds points spent on removed barrier and armor stats during migration', async () => {
     const storage = new MemoryStorage();
     storage.values.set(

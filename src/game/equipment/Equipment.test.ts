@@ -19,6 +19,17 @@ describe('Equipment', () => {
     );
   });
 
+  it('generates named affixes and applies their modifiers', () => {
+    const rare = Array.from({ length: 50 }, (_, runId) => generateVictoryLoot(21, runId))
+      .flat()
+      .find((item) => item.rarity === 'rare');
+    expect(rare).toBeDefined();
+    expect(rare?.affixes).toHaveLength(rare?.affixCount ?? 0);
+    expect(rare?.affixes.every((affix) => affix.label && affix.valueLabel && affix.tier >= 8)).toBe(
+      true,
+    );
+  });
+
   it('starts with the agreed short bow and equips owned items by slot', () => {
     const reward = generateVictoryLoot(1, 3)[0];
     expect(getEquippedItem(DEFAULT_EQUIPMENT, 'bow')?.name).toBe('Короткий лук');
@@ -33,6 +44,9 @@ describe('Equipment', () => {
     const armor = loot.find((item) => item.armorPercent !== undefined);
     if (!armor) return;
     const guardian = applyEquipmentToGuardian(FIRST_COMBAT.guardian, equipItem(withLoot, armor.id));
-    expect(guardian.armorPercent).toBe(armor.armorPercent);
+    const affixArmor = armor.affixes
+      .filter((affix) => affix.modifier === 'armor')
+      .reduce((total, affix) => total + affix.value, 0);
+    expect(guardian.armorPercent).toBeCloseTo((armor.armorPercent ?? 0) + affixArmor);
   });
 });

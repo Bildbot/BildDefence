@@ -746,11 +746,26 @@ function ItemDetails({
           <dt>{item.primaryLabel}</dt>
           <dd>{item.primaryValue}</dd>
         </div>
-        <div>
-          <dt>Аффиксы</dt>
-          <dd>{item.affixCount}</dd>
-        </div>
       </dl>
+      {item.affixes.length > 0 && (
+        <div className="item-affixes">
+          <h4>Аффиксы</h4>
+          <ul>
+            {item.affixes.map((affix) => (
+              <li key={affix.family}>
+                <span>
+                  {affix.kind === 'prefix' ? 'Префикс' : 'Суффикс'} · T{affix.tier}
+                </span>
+                <div>
+                  <strong>{affix.label}</strong>
+                  <b>{affix.valueLabel}</b>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {item.affixes.length === 0 && <p className="no-affixes">Без аффиксов</p>}
       <button
         className="button secondary"
         type="button"

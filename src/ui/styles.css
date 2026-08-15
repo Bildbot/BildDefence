@@ -413,6 +413,51 @@ button {
   font-weight: 800;
 }
 
+.item-affixes {
+  margin: 10px 0 12px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(112, 212, 241, 0.14);
+}
+
+.item-affixes h4 {
+  margin: 0 0 7px;
+  color: #8eb3bf;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.item-affixes ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-affixes li {
+  padding-left: 9px;
+  border-left: 2px solid rgba(232, 200, 91, 0.7);
+}
+
+.item-affixes li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.item-affixes b {
+  color: #e8c85b;
+  white-space: nowrap;
+}
+
+.no-affixes {
+  margin: 8px 0 12px;
+  color: #668793;
+  font-size: 11px;
+}
+
 .menu-overlay,
 .dialog-backdrop {
   position: absolute;
