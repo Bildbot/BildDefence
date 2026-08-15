@@ -522,8 +522,15 @@ type ArenaSelectorProps = {
 
 function ArenaSelector({ selectedArena, maxUnlockedArena, onChange }: ArenaSelectorProps) {
   const balance = getArenaBalance(selectedArena);
-  const nextLockedArena = Math.min(MAX_ARENA_LEVEL, maxUnlockedArena + 1);
-  const arenaOptions = Array.from({ length: maxUnlockedArena }, (_, index) => index + 1);
+  const pointerStartY = useRef<number | null>(null);
+  const previousArena = selectedArena > 1 ? selectedArena - 1 : null;
+  const nextArena = selectedArena < MAX_ARENA_LEVEL ? selectedArena + 1 : null;
+  const isNextArenaLocked = nextArena !== null && nextArena > maxUnlockedArena;
+
+  const moveSelection = (direction: -1 | 1) => {
+    const nextSelection = selectedArena + direction;
+    if (nextSelection >= 1 && nextSelection <= maxUnlockedArena) onChange(nextSelection);
+  };
 
   return (
     <section className="arena-selector" aria-label="Выбор уровня арены">
@@ -533,41 +540,64 @@ function ArenaSelector({ selectedArena, maxUnlockedArena, onChange }: ArenaSelec
           Враги ур. {balance.enemyLevel} · {balance.enemyCount} шт.
         </span>
       </div>
-      <div className="arena-picker">
-        <button
-          className="arena-step-button"
-          type="button"
-          disabled={selectedArena <= 1}
-          aria-label="Предыдущая арена"
-          onClick={() => onChange(Math.max(1, selectedArena - 1))}
+      <div
+        className="arena-picker"
+        role="listbox"
+        tabIndex={0}
+        aria-label="Уровень арены"
+        aria-activedescendant={`arena-option-${selectedArena}`}
+        onWheel={(event) => {
+          event.preventDefault();
+          if (Math.abs(event.deltaY) < 4) return;
+          moveSelection(event.deltaY > 0 ? 1 : -1);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+          event.preventDefault();
+          moveSelection(event.key === 'ArrowDown' ? 1 : -1);
+        }}
+        onPointerDown={(event) => {
+          pointerStartY.current = event.clientY;
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerUp={(event) => {
+          if (pointerStartY.current === null) return;
+          const distance = event.clientY - pointerStartY.current;
+          pointerStartY.current = null;
+          if (Math.abs(distance) >= 24) moveSelection(distance < 0 ? 1 : -1);
+        }}
+        onPointerCancel={() => {
+          pointerStartY.current = null;
+        }}
+      >
+        <div className="arena-picker-fade arena-picker-fade-top" aria-hidden="true" />
+        <div className="arena-picker-fade arena-picker-fade-bottom" aria-hidden="true" />
+        <div
+          className="arena-option arena-option-adjacent"
+          role="option"
+          aria-selected="false"
         >
-          −
-        </button>
-        <select
-          className="arena-select"
-          aria-label="Уровень арены"
-          value={selectedArena}
-          onChange={(event) => onChange(Number(event.target.value))}
+          {previousArena === null ? '\u00a0' : `Арена ${previousArena}`}
+        </div>
+        <div
+          id={`arena-option-${selectedArena}`}
+          className="arena-option arena-option-selected"
+          role="option"
+          aria-selected="true"
         >
-          {arenaOptions.map((arenaLevel) => (
-            <option key={arenaLevel} value={arenaLevel}>
-              Арена {arenaLevel}
-            </option>
-          ))}
-        </select>
-        <button
-          className="arena-step-button"
-          type="button"
-          disabled={selectedArena >= maxUnlockedArena}
-          aria-label="Следующая арена"
-          onClick={() => onChange(Math.min(maxUnlockedArena, selectedArena + 1))}
+          Арена {selectedArena}
+        </div>
+        <div
+          className={`arena-option arena-option-adjacent${isNextArenaLocked ? ' arena-option-locked' : ''}`}
+          role="option"
+          aria-selected="false"
+          aria-disabled={isNextArenaLocked || undefined}
         >
-          +
-        </button>
+          {nextArena === null
+            ? '\u00a0'
+            : `Арена ${nextArena}${isNextArenaLocked ? ' · закрыта' : ''}`}
+        </div>
       </div>
-      {maxUnlockedArena < MAX_ARENA_LEVEL && (
-        <span className="arena-locked">Арена {nextLockedArena} · закрыта</span>
-      )}
     </section>
   );
 }
