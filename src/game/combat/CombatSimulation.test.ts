@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIRST_COMBAT, type CombatDefinition } from '../../content/firstCombat';
-import { CombatSimulation } from './CombatSimulation';
+import { CombatSimulation, GUARDIAN_X } from './CombatSimulation';
 
 const guardian = {
   maxHealth: 100,
@@ -11,6 +11,9 @@ const guardian = {
   attacksPerSecond: 10,
   criticalChance: 0,
   criticalMultiplier: 1.5,
+  ricochetCount: 0,
+  ricochetDamageMultiplier: 0,
+  additionalProjectiles: 0,
   projectileSpeed: 2000,
 };
 
@@ -44,6 +47,63 @@ describe('CombatSimulation', () => {
     const projectile = simulation.projectiles.find((candidate) => candidate.active);
     expect(projectile).toBeDefined();
     expect(projectile?.velocityY).toBeLessThan(0);
+  });
+
+  it('fires additional full-damage arrows with one shared critical roll', () => {
+    const simulation = new CombatSimulation(
+      {
+        ...fastVictory,
+        guardian: {
+          ...guardian,
+          additionalProjectiles: 3,
+          criticalChance: 1,
+          criticalMultiplier: 2,
+        },
+        enemy: { ...fastVictory.enemy, maxHealth: 1000, speed: 0 },
+        wave: { enemyCount: 1, spawnIntervalSeconds: 1 },
+      },
+      7,
+    );
+    simulation.step(1 / 60);
+    const arrows = simulation.projectiles.filter((projectile) => projectile.active);
+    expect(arrows).toHaveLength(4);
+    expect(new Set(arrows.map((projectile) => projectile.damage))).toEqual(new Set([200]));
+    expect(new Set(arrows.map((projectile) => projectile.hitEnemyIds)).size).toBe(1);
+  });
+
+  it('ricochets to the nearest new enemy with damage from the previous hit', () => {
+    const simulation = new CombatSimulation(
+      {
+        ...fastVictory,
+        guardian: {
+          ...guardian,
+          attacksPerSecond: 0.01,
+          ricochetCount: 1,
+          ricochetDamageMultiplier: 0.5,
+          projectileSpeed: 1000,
+        },
+        enemy: { ...fastVictory.enemy, maxHealth: 1000, speed: 0 },
+        wave: { enemyCount: 2, spawnIntervalSeconds: 0 },
+      },
+      7,
+    );
+    simulation.step(0.001);
+    const [first, second] = simulation.enemies;
+    const projectile = simulation.projectiles.find((candidate) => candidate.active);
+    expect(first && second && projectile).toBeDefined();
+    if (!first || !second || !projectile) return;
+    first.x = GUARDIAN_X;
+    first.y = 600;
+    second.x = GUARDIAN_X;
+    second.y = 500;
+    projectile.x = GUARDIAN_X;
+    projectile.y = 650;
+    projectile.velocityX = 0;
+    projectile.velocityY = -1000;
+    for (let index = 0; index < 20; index += 1) simulation.step(0.01);
+    expect(first.health).toBeCloseTo(900);
+    expect(second.health).toBeCloseTo(950);
+    expect(projectile.hitEnemyIds).toEqual(new Set([first.id, second.id]));
   });
 
   it('finishes with victory after every spawned enemy is defeated', () => {

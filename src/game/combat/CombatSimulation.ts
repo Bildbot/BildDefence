@@ -29,6 +29,9 @@ export type ProjectileState = {
   velocityX: number;
   velocityY: number;
   damage: number;
+  remainingRicochets: number;
+  ricochetDamageMultiplier: number;
+  hitEnemyIds: Set<number>;
 };
 
 export type CombatSnapshot = Readonly<{
@@ -91,6 +94,9 @@ export class CombatSimulation {
       velocityX: 0,
       velocityY: 0,
       damage: 0,
+      remainingRicochets: 0,
+      ricochetDamageMultiplier: 0,
+      hitEnemyIds: new Set<number>(),
     }));
   }
 
@@ -180,24 +186,58 @@ export class CombatSimulation {
     const target = this.findPriorityTarget();
     if (!target) return;
 
-    const projectile = this.projectiles.find((candidate) => !candidate.active);
-    if (!projectile) return;
     const dx = target.x - GUARDIAN_X;
     const dy = target.y - GUARDIAN_Y;
     const distance = Math.hypot(dx, dy) || 1;
-    projectile.active = true;
-    projectile.x = GUARDIAN_X;
-    projectile.y = GUARDIAN_Y - 28;
-    projectile.velocityX = (dx / distance) * this.definition.guardian.projectileSpeed;
-    projectile.velocityY = (dy / distance) * this.definition.guardian.projectileSpeed;
-    projectile.damage =
+    const baseAngle = Math.atan2(dy / distance, dx / distance);
+    const projectileCount = 1 + this.definition.guardian.additionalProjectiles;
+    const criticalMultiplier =
+      this.random() < this.definition.guardian.criticalChance
+        ? this.definition.guardian.criticalMultiplier
+        : 1;
+    const damage =
       (this.definition.guardian.minimumDamage +
         this.random() *
           (this.definition.guardian.maximumDamage - this.definition.guardian.minimumDamage)) *
-      (this.random() < this.definition.guardian.criticalChance
-        ? this.definition.guardian.criticalMultiplier
-        : 1);
+      criticalMultiplier;
+    const hitEnemyIds = new Set<number>();
+    const spreadRadians = (8 * Math.PI) / 180;
+    for (let index = 0; index < projectileCount; index += 1) {
+      const offset = (index - (projectileCount - 1) / 2) * spreadRadians;
+      this.launchProjectile(
+        GUARDIAN_X,
+        GUARDIAN_Y - 28,
+        baseAngle + offset,
+        damage,
+        this.definition.guardian.ricochetCount,
+        this.definition.guardian.ricochetDamageMultiplier,
+        hitEnemyIds,
+      );
+    }
     this.fireCooldown += 1 / this.definition.guardian.attacksPerSecond;
+  }
+
+  private launchProjectile(
+    x: number,
+    y: number,
+    angle: number,
+    damage: number,
+    remainingRicochets: number,
+    ricochetDamageMultiplier: number,
+    hitEnemyIds: Set<number>,
+  ): boolean {
+    const projectile = this.projectiles.find((candidate) => !candidate.active);
+    if (!projectile) return false;
+    projectile.active = true;
+    projectile.x = x;
+    projectile.y = y;
+    projectile.velocityX = Math.cos(angle) * this.definition.guardian.projectileSpeed;
+    projectile.velocityY = Math.sin(angle) * this.definition.guardian.projectileSpeed;
+    projectile.damage = damage;
+    projectile.remainingRicochets = remainingRicochets;
+    projectile.ricochetDamageMultiplier = ricochetDamageMultiplier;
+    projectile.hitEnemyIds = hitEnemyIds;
+    return true;
   }
 
   private findPriorityTarget(): EnemyState | null {
@@ -245,20 +285,45 @@ export class CombatSimulation {
       }
 
       for (const enemy of this.enemies) {
-        if (!enemy.active) continue;
+        if (!enemy.active || projectile.hitEnemyIds.has(enemy.id)) continue;
         const dx = enemy.x - projectile.x;
         const dy = enemy.y - projectile.y;
         if (dx * dx + dy * dy > collisionDistanceSquared) continue;
-        projectile.active = false;
+        projectile.hitEnemyIds.add(enemy.id);
         enemy.health -= projectile.damage;
         if (enemy.health <= 0) {
           enemy.active = false;
           this.defeatedEnemies += 1;
           this.awardEnemyExperience();
         }
+        if (!this.redirectRicochet(projectile)) projectile.active = false;
         break;
       }
     }
+  }
+
+  private redirectRicochet(projectile: ProjectileState): boolean {
+    if (projectile.remainingRicochets <= 0) return false;
+    let target: EnemyState | undefined;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    for (const enemy of this.enemies) {
+      if (!enemy.active || projectile.hitEnemyIds.has(enemy.id)) continue;
+      const distance = Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y);
+      if (
+        distance < nearestDistance ||
+        (distance === nearestDistance && enemy.id < (target?.id ?? 0))
+      ) {
+        target = enemy;
+        nearestDistance = distance;
+      }
+    }
+    if (!target) return false;
+    const angle = Math.atan2(target.y - projectile.y, target.x - projectile.x);
+    projectile.velocityX = Math.cos(angle) * this.definition.guardian.projectileSpeed;
+    projectile.velocityY = Math.sin(angle) * this.definition.guardian.projectileSpeed;
+    projectile.damage *= projectile.ricochetDamageMultiplier;
+    projectile.remainingRicochets -= 1;
+    return true;
   }
 
   private awardEnemyExperience(): void {

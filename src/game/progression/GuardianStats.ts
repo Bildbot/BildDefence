@@ -16,6 +16,7 @@ export type GuardianStatUpgrades = Readonly<Record<GuardianStatUpgradeKey, numbe
 type GuardianStatUpgradeRule = Readonly<{
   increment: number;
   maximum?: number;
+  maximumUpgrades?: number;
 }>;
 
 export const GUARDIAN_STAT_UPGRADE_RULES: Readonly<
@@ -25,7 +26,7 @@ export const GUARDIAN_STAT_UPGRADE_RULES: Readonly<
   healthRegenPerSecond: { increment: 0.1, maximum: 5 },
   damage: { increment: 2 },
   attacksPerSecond: { increment: 0.075, maximum: 3 },
-  criticalChance: { increment: 0.03, maximum: 0.5 },
+  criticalChance: { increment: 0.02, maximum: 1, maximumUpgrades: 20 },
   criticalMultiplier: { increment: 0.15, maximum: 3 },
 };
 
@@ -89,12 +90,17 @@ export function canUpgradeGuardianStat(
 ): boolean {
   if (stat === 'damage') return true;
   const rule = GUARDIAN_STAT_UPGRADE_RULES[stat];
+  if (rule.maximumUpgrades !== undefined && upgrades[stat] >= rule.maximumUpgrades) return false;
   if (rule.maximum === undefined) return true;
   return applyUpgrade(base[stat], upgrades[stat], rule) < rule.maximum;
 }
 
 function applyUpgrade(base: number, count: number, rule: GuardianStatUpgradeRule): number {
-  const upgraded = base + Math.max(0, Math.floor(count)) * rule.increment;
+  const upgradeCount = Math.min(
+    Math.max(0, Math.floor(count)),
+    rule.maximumUpgrades ?? Number.POSITIVE_INFINITY,
+  );
+  const upgraded = base + upgradeCount * rule.increment;
   return roundStat(rule.maximum === undefined ? upgraded : Math.min(rule.maximum, upgraded));
 }
 

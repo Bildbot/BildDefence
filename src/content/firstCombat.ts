@@ -7,6 +7,9 @@ export type GuardianDefinition = Readonly<{
   attacksPerSecond: number;
   criticalChance: number;
   criticalMultiplier: number;
+  ricochetCount: number;
+  ricochetDamageMultiplier: number;
+  additionalProjectiles: number;
   projectileSpeed: number;
 }>;
 
@@ -43,6 +46,9 @@ export const FIRST_COMBAT: CombatDefinition = {
     attacksPerSecond: 1.55,
     criticalChance: 0.05,
     criticalMultiplier: 1.5,
+    ricochetCount: 0,
+    ricochetDamageMultiplier: 0,
+    additionalProjectiles: 0,
     projectileSpeed: 430,
   },
   enemy: {

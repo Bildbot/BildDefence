@@ -23,7 +23,7 @@ describe('GuardianStats', () => {
       minimumDamage: 15,
       maximumDamage: 21,
       attacksPerSecond: 1.625,
-      criticalChance: 0.08,
+      criticalChance: 0.07,
       criticalMultiplier: 1.65,
     });
     expect(upgraded.projectileSpeed).toBe(FIRST_COMBAT.guardian.projectileSpeed);
@@ -43,7 +43,7 @@ describe('GuardianStats', () => {
     expect(upgraded).toMatchObject({
       healthRegenPerSecond: 5,
       attacksPerSecond: 3,
-      criticalChance: 0.5,
+      criticalChance: 0.45,
       criticalMultiplier: 3,
     });
     expect(canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'damage')).toBe(true);

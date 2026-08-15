@@ -16,6 +16,7 @@ describe('Equipment', () => {
     const first = generateVictoryLoot(21, 7);
     expect(first).toEqual(generateVictoryLoot(21, 7));
     expect(first).toHaveLength(3);
+    expect(first.every((item) => item.affixes.length === item.affixCount)).toBe(true);
     expect(first.every((item) => item.level === 21 && (item.rank === 2 || item.rank === 3))).toBe(
       true,
     );
@@ -106,6 +107,66 @@ describe('Equipment', () => {
     });
     expect(guardian.attacksPerSecond).toBeCloseTo(1.55 * 1.04);
     expect(orderAffixes(bow.affixes)).toEqual([prefix, suffix]);
+  });
+
+  it('applies local bow critical chance, combat properties, and global crit chance', () => {
+    const bow = {
+      ...DEFAULT_EQUIPMENT.items[0]!,
+      id: 'test-critical-bow',
+      affixCount: 3,
+      affixes: [
+        {
+          family: 'critical-chance',
+          kind: 'suffix' as const,
+          label: 'Шанс критического удара',
+          tier: 1,
+          value: 1,
+          valueLabel: '+100%',
+          modifier: 'localCriticalChance' as const,
+        },
+        {
+          family: 'ricochet',
+          kind: 'suffix' as const,
+          label: 'Рикошет',
+          tier: 1,
+          value: 3,
+          secondaryValue: 0.7,
+          valueLabel: '3 · 70% урона',
+          modifier: 'ricochet' as const,
+        },
+        {
+          family: 'additional-projectiles',
+          kind: 'suffix' as const,
+          label: 'Дополнительные стрелы',
+          tier: 3,
+          value: 1,
+          valueLabel: '+1',
+          modifier: 'additionalProjectiles' as const,
+        },
+      ],
+    };
+    const quiver = {
+      ...bow,
+      id: 'test-critical-quiver',
+      slot: 'quiver' as const,
+      affixCount: 1,
+      affixes: [
+        {
+          ...bow.affixes[0]!,
+          value: 0.05,
+          valueLabel: '+5%',
+          modifier: 'criticalChance' as const,
+        },
+      ],
+    };
+    const guardian = applyEquipmentToGuardian(FIRST_COMBAT.guardian, {
+      items: [bow, quiver],
+      equipped: { bow: bow.id, quiver: quiver.id },
+    });
+    expect(guardian.criticalChance).toBeCloseTo(0.15);
+    expect(guardian.ricochetCount).toBe(3);
+    expect(guardian.ricochetDamageMultiplier).toBe(0.7);
+    expect(guardian.additionalProjectiles).toBe(1);
   });
 
   it('starts with the agreed short bow and equips owned items by slot', () => {

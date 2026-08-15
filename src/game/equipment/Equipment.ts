@@ -20,9 +20,12 @@ export type EquipmentAffix = Readonly<{
     | 'damage'
     | 'flatDamage'
     | 'localAttackSpeed'
+    | 'localCriticalChance'
     | 'attackSpeed'
     | 'criticalChance'
-    | 'criticalMultiplier';
+    | 'criticalMultiplier'
+    | 'ricochet'
+    | 'additionalProjectiles';
 }>;
 
 export type EquipmentItem = Readonly<{
@@ -140,6 +143,7 @@ export function applyEquipmentToGuardian(
   const baseArmor = equippedItems.reduce((total, item) => total + (item.armorPercent ?? 0), 0);
   const damageMultiplier = 1 + modifierTotal('damage');
   const localAttackSpeedMultiplier = 1 + modifierTotal('localAttackSpeed');
+  const localCriticalChanceMultiplier = 1 + modifierTotal('localCriticalChance');
   const globalAttackSpeedMultiplier = 1 + modifierTotal('attackSpeed');
   const addedMinimumDamage = affixes.reduce(
     (total, affix) =>
@@ -163,13 +167,22 @@ export function applyEquipmentToGuardian(
     maximumDamage: Math.round(
       ((bow?.maximumDamage ?? guardian.maximumDamage) + addedMaximumDamage) * damageMultiplier,
     ),
-    attacksPerSecond:
+    attacksPerSecond: Math.min(
+      3,
       (bow?.attacksPerSecond ?? guardian.attacksPerSecond) *
-      localAttackSpeedMultiplier *
-      globalAttackSpeedMultiplier,
-    criticalChance:
-      (bow?.criticalChance ?? guardian.criticalChance) + modifierTotal('criticalChance'),
+        localAttackSpeedMultiplier *
+        globalAttackSpeedMultiplier,
+    ),
+    criticalChance: Math.min(
+      1,
+      (bow?.criticalChance ?? guardian.criticalChance) * localCriticalChanceMultiplier +
+        modifierTotal('criticalChance'),
+    ),
     criticalMultiplier: guardian.criticalMultiplier + modifierTotal('criticalMultiplier'),
+    ricochetCount: Math.round(modifierTotal('ricochet')),
+    ricochetDamageMultiplier:
+      affixes.find((affix) => affix.modifier === 'ricochet')?.secondaryValue ?? 0,
+    additionalProjectiles: Math.round(modifierTotal('additionalProjectiles')),
     armorPercent: baseArmor + modifierTotal('armor'),
   };
 }
@@ -201,7 +214,7 @@ function createItem(
     level,
     rank,
     rarity,
-    affixCount,
+    affixCount: affixes.length,
     affixes,
     ...getPrimaryStat(slot, rank, baseName),
   };
@@ -215,6 +228,8 @@ type AffixDefinition = Readonly<{
   valueAtTier: (power: number, random: () => number) => number;
   format: (value: number) => string;
   rollAtTier?: (power: number, random: () => number) => AffixRoll;
+  familyWeight?: number;
+  tierWeights?: Readonly<Partial<Record<number, number>>>;
 }>;
 
 type AffixRoll = Pick<
@@ -284,18 +299,94 @@ const BOW_AFFIXES: readonly AffixDefinition[] = [
     family: 'critical-chance',
     kind: 'suffix',
     label: 'Шанс критического удара',
-    modifier: 'criticalChance',
-    valueAtTier: (power) => (0.5 + power * 0.35) / 100,
+    modifier: 'localCriticalChance',
+    valueAtTier: (power, random) => {
+      const range = CRITICAL_CHANCE_RANGES[power - 1] ?? [10, 14];
+      return rollInteger(range[0], range[1], random) / 100;
+    },
     format: percent,
+    familyWeight: 0.8,
   },
   {
     family: 'critical-multiplier',
     kind: 'suffix',
     label: 'Множитель критического удара',
     modifier: 'criticalMultiplier',
-    valueAtTier: (power) => (4 + power * 2) / 100,
+    valueAtTier: (power, random) => {
+      const range = CRITICAL_MULTIPLIER_RANGES[power - 1] ?? [5, 8];
+      return rollInteger(range[0], range[1], random) / 100;
+    },
     format: percent,
+    familyWeight: 0.7,
   },
+  {
+    family: 'ricochet',
+    kind: 'suffix',
+    label: 'Рикошет',
+    modifier: 'ricochet',
+    valueAtTier: () => 0,
+    format: String,
+    tierWeights: { 8: 1000, 7: 700, 6: 450, 5: 250, 4: 120, 3: 50, 2: 12, 1: 1 },
+    rollAtTier: (power) => {
+      const [count, damagePercent] = RICOCHET_VALUES[power - 1] ?? [1, 40];
+      return {
+        value: count,
+        secondaryValue: damagePercent / 100,
+        valueLabel: `${count} · ${damagePercent}% урона`,
+      };
+    },
+  },
+  {
+    family: 'additional-projectiles',
+    kind: 'suffix',
+    label: 'Дополнительные стрелы',
+    modifier: 'additionalProjectiles',
+    valueAtTier: (power) => power - 5,
+    format: (value) => `+${value}`,
+    tierWeights: { 3: 1000, 2: 150, 1: 10 },
+  },
+];
+
+const STANDARD_TIER_WEIGHTS: Readonly<Record<number, number>> = {
+  8: 10000,
+  7: 7000,
+  6: 4500,
+  5: 2500,
+  4: 1200,
+  3: 500,
+  2: 120,
+  1: 10,
+};
+
+const CRITICAL_CHANCE_RANGES: readonly (readonly [number, number])[] = [
+  [10, 14],
+  [15, 24],
+  [25, 34],
+  [35, 44],
+  [45, 54],
+  [55, 64],
+  [65, 79],
+  [80, 100],
+];
+const CRITICAL_MULTIPLIER_RANGES: readonly (readonly [number, number])[] = [
+  [5, 8],
+  [9, 12],
+  [13, 17],
+  [18, 22],
+  [23, 27],
+  [28, 32],
+  [33, 37],
+  [38, 45],
+];
+const RICOCHET_VALUES: readonly (readonly [number, number])[] = [
+  [1, 40],
+  [1, 50],
+  [1, 60],
+  [2, 45],
+  [2, 55],
+  [2, 65],
+  [3, 60],
+  [3, 70],
 ];
 
 const FLAT_DAMAGE_RANGES: readonly (readonly [number, number])[] = [
@@ -339,12 +430,17 @@ const ATTACK_SPEED_RANGES: readonly (readonly [number, number])[] = [
   [23, 25],
 ];
 
-const toGlobalAttackSpeed = (affix: AffixDefinition): AffixDefinition =>
-  affix.family === 'attack-speed' ? { ...affix, modifier: 'attackSpeed' } : affix;
+const toGlobalOffence = (affix: AffixDefinition): AffixDefinition => {
+  if (affix.family === 'attack-speed') return { ...affix, modifier: 'attackSpeed' };
+  if (affix.family === 'critical-chance') return { ...affix, modifier: 'criticalChance' };
+  return affix;
+};
 
 const QUIVER_AFFIXES = BOW_AFFIXES.filter(
-  (affix) => affix.kind === 'suffix' || affix.family === 'damage',
-).map(toGlobalAttackSpeed);
+  (affix) =>
+    affix.kind === 'prefix' ||
+    ['attack-speed', 'critical-chance', 'critical-multiplier'].includes(affix.family),
+).map(toGlobalOffence);
 
 const DEFENSIVE_AFFIXES: readonly AffixDefinition[] = [
   {
@@ -397,7 +493,7 @@ function generateAffixes(
               ...DEFENSIVE_AFFIXES,
               ...BOW_AFFIXES.filter(
                 (affix) => affix.family === 'attack-speed' || affix.family === 'critical-chance',
-              ).map(toGlobalAttackSpeed),
+              ).map(toGlobalOffence),
             ]
           : DEFENSIVE_AFFIXES;
   const available = [...pool];
@@ -407,12 +503,20 @@ function generateAffixes(
       (candidate) => result.filter((affix) => affix.kind === candidate.kind).length < 2,
     );
     if (allowed.length === 0) break;
-    const definition = allowed[Math.floor(random() * allowed.length)] ?? allowed[0];
-    if (!definition) break;
-    available.splice(available.indexOf(definition), 1);
     const strongestTier = getStrongestAffixTier(level);
-    const tierRange = 9 - strongestTier;
-    const tier = strongestTier + Math.floor(Math.pow(random(), 0.35) * tierRange);
+    const entries = allowed.flatMap((definition) =>
+      Object.entries(definition.tierWeights ?? STANDARD_TIER_WEIGHTS)
+        .map(([tier, weight]) => ({
+          definition,
+          tier: Number(tier),
+          weight: (weight ?? 0) * (definition.familyWeight ?? 1),
+        }))
+        .filter((entry) => entry.tier >= strongestTier && entry.weight > 0),
+    );
+    const selected = selectWeighted(entries, random);
+    if (!selected) break;
+    const { definition, tier } = selected;
+    available.splice(available.indexOf(definition), 1);
     const power = 9 - tier;
     const roll = definition.rollAtTier?.(power, random);
     const value = roll?.value ?? definition.valueAtTier(power, random);
@@ -423,6 +527,19 @@ function generateAffixes(
     });
   }
   return result;
+}
+
+function selectWeighted<T extends { weight: number }>(
+  entries: readonly T[],
+  random: () => number,
+): T | undefined {
+  const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  let roll = random() * total;
+  for (const entry of entries) {
+    roll -= entry.weight;
+    if (roll < 0) return entry;
+  }
+  return entries.at(-1);
 }
 
 function rollDamageRange(range: readonly [number, number], random: () => number): [number, number] {
@@ -459,17 +576,14 @@ export function addMissingAffixes(item: Omit<EquipmentItem, 'affixes'>): Equipme
 
 function getPrimaryStat(slot: EquipmentSlot, rank: number, baseName: string) {
   if (slot === 'bow') {
-    const multiplier = 1 + (rank - 1) * 0.35;
-    const [minimum, maximum, speed] = baseName.startsWith('Короткий')
-      ? [13, 19, 1.55]
-      : baseName.startsWith('Длинный')
-        ? [20, 32, 0.95]
-        : [16, 24, 1.2];
+    const line = baseName.startsWith('Короткий') ? 0 : baseName.startsWith('Длинный') ? 1 : 2;
+    const [minimum, maximum] = BOW_DAMAGE_RANGES[line]?.[rank - 1] ?? [13, 19];
+    const speed = [1.55, 0.95, 1.2][line] ?? 1.55;
     return {
       primaryLabel: 'Физический урон',
-      primaryValue: `${Math.round(minimum * multiplier)}–${Math.round(maximum * multiplier)} · ${speed.toFixed(2).replace('.', ',')}/с`,
-      minimumDamage: Math.round(minimum * multiplier),
-      maximumDamage: Math.round(maximum * multiplier),
+      primaryValue: `${minimum}–${maximum} · ${speed.toFixed(2).replace('.', ',')}/с`,
+      minimumDamage: minimum,
+      maximumDamage: maximum,
       attacksPerSecond: speed,
       criticalChance: baseName.startsWith('Составной') ? 0.08 : 0.05,
     };
@@ -486,6 +600,45 @@ function getPrimaryStat(slot: EquipmentSlot, rank: number, baseName: string) {
     armorPercent,
   };
 }
+
+const BOW_DAMAGE_RANGES: readonly (readonly (readonly [number, number])[])[] = [
+  [
+    [13, 19],
+    [18, 26],
+    [23, 33],
+    [29, 42],
+    [35, 51],
+    [42, 62],
+    [50, 73],
+    [59, 86],
+    [68, 99],
+    [78, 114],
+  ],
+  [
+    [20, 32],
+    [27, 43],
+    [35, 56],
+    [44, 70],
+    [54, 86],
+    [65, 104],
+    [77, 123],
+    [90, 144],
+    [104, 166],
+    [120, 192],
+  ],
+  [
+    [16, 24],
+    [22, 32],
+    [28, 42],
+    [35, 53],
+    [43, 65],
+    [52, 78],
+    [62, 92],
+    [72, 108],
+    [83, 125],
+    [96, 144],
+  ],
+];
 
 function createRandom(seed: number): () => number {
   let state = seed || 1;
@@ -552,9 +705,12 @@ function isEquipmentAffix(value: unknown): value is EquipmentAffix {
       'damage',
       'flatDamage',
       'localAttackSpeed',
+      'localCriticalChance',
       'attackSpeed',
       'criticalChance',
       'criticalMultiplier',
+      'ricochet',
+      'additionalProjectiles',
     ].includes(value.modifier as string)
   );
 }
