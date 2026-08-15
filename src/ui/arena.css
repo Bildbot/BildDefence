@@ -21,62 +21,69 @@
   font-size: 13px;
 }
 
-.arena-selector-copy span,
-.arena-locked {
+.arena-selector-copy span {
   color: #7897a6;
   font-size: 10px;
 }
 
 .arena-picker {
+  position: relative;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
-  align-items: center;
-  gap: 6px;
-}
-
-.arena-step-button {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  color: #66e3a3;
-  background: transparent;
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.arena-step-button:active:not(:disabled) {
-  transform: scale(0.9);
-}
-
-.arena-step-button:disabled {
-  opacity: 0.2;
-  cursor: default;
-}
-
-.arena-select {
-  min-width: 0;
-  height: 40px;
-  padding: 0 30px 0 12px;
-  border: 1px solid rgba(116, 218, 247, 0.22);
+  grid-template-rows: repeat(3, 32px);
+  overflow: hidden;
   border-radius: 12px;
+  background: rgba(7, 22, 31, 0.7);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.arena-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: #7897a6;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.arena-option-selected {
+  z-index: 1;
+  margin: 0 6px;
+  border: 1px solid rgba(116, 218, 247, 0.28);
+  border-radius: 10px;
   color: #e5f9ff;
   background: #102a39;
-  font-weight: 800;
-  text-align: center;
-  cursor: pointer;
+  font-size: 15px;
+  font-weight: 900;
 }
 
-.arena-locked {
-  display: block;
-  margin-top: 4px;
-  text-align: center;
+.arena-option-locked {
+  color: #536d79;
 }
 
-.arena-step-button:focus-visible,
-.arena-select:focus-visible {
+.arena-picker-fade {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  left: 0;
+  height: 22px;
+  pointer-events: none;
+}
+
+.arena-picker-fade-top {
+  top: 0;
+  background: linear-gradient(rgba(7, 22, 31, 0.96), transparent);
+}
+
+.arena-picker-fade-bottom {
+  bottom: 0;
+  background: linear-gradient(transparent, rgba(7, 22, 31, 0.96));
+}
+
+.arena-picker:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 2px;
 }
