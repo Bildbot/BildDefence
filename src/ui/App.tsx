@@ -588,7 +588,9 @@ function ArenaSelector({ selectedArena, maxUnlockedArena, onChange }: ArenaSelec
           Арена {selectedArena}
         </div>
         <div
-          className={`arena-option arena-option-adjacent${isNextArenaLocked ? ' arena-option-locked' : ''}`}
+          className={`arena-option arena-option-adjacent${
+            isNextArenaLocked ? ' arena-option-locked' : ''
+          }`}
           role="option"
           aria-selected="false"
           aria-disabled={isNextArenaLocked || undefined}
