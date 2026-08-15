@@ -5,6 +5,7 @@ import {
   addItems,
   equipItem,
   generateVictoryLoot,
+  getStrongestAffixTier,
   getEquippedItem,
 } from './Equipment';
 import { FIRST_COMBAT } from '../../content/firstCombat';
@@ -25,9 +26,15 @@ describe('Equipment', () => {
       .find((item) => item.rarity === 'rare');
     expect(rare).toBeDefined();
     expect(rare?.affixes).toHaveLength(rare?.affixCount ?? 0);
-    expect(rare?.affixes.every((affix) => affix.label && affix.valueLabel && affix.tier >= 8)).toBe(
+    expect(rare?.affixes.every((affix) => affix.label && affix.valueLabel && affix.tier >= 6)).toBe(
       true,
     );
+  });
+
+  it('unlocks eight affix tiers with T1 reserved for item level 100', () => {
+    expect([1, 11, 21, 36, 51, 66, 81, 99, 100].map(getStrongestAffixTier)).toEqual([
+      8, 7, 6, 5, 4, 3, 2, 2, 1,
+    ]);
   });
 
   it('starts with the agreed short bow and equips owned items by slot', () => {

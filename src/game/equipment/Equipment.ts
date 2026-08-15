@@ -181,7 +181,7 @@ type AffixDefinition = Readonly<{
   kind: EquipmentAffix['kind'];
   label: string;
   modifier: EquipmentAffix['modifier'];
-  valueAtTier: (power: number) => number;
+  valueAtTier: (power: number, random: () => number) => number;
   format: (value: number) => string;
 }>;
 
@@ -194,7 +194,11 @@ const OFFENSIVE_AFFIXES: readonly AffixDefinition[] = [
     kind: 'prefix',
     label: 'Увеличение физического урона',
     modifier: 'damage',
-    valueAtTier: (power) => (3 + power * 2) / 100,
+    valueAtTier: (power, random) => {
+      const minimum = power === 8 ? 90 : power * 10;
+      const maximum = power === 8 ? 100 : minimum + 9;
+      return (minimum + Math.floor(random() * (maximum - minimum + 1))) / 100;
+    },
     format: percent,
   },
   {
@@ -288,14 +292,25 @@ function generateAffixes(
     const definition = allowed[Math.floor(random() * allowed.length)] ?? allowed[0];
     if (!definition) break;
     available.splice(available.indexOf(definition), 1);
-    const strongestTier = Math.max(1, 10 - Math.floor((level - 1) / 10));
-    const tierRange = 11 - strongestTier;
+    const strongestTier = getStrongestAffixTier(level);
+    const tierRange = 9 - strongestTier;
     const tier = strongestTier + Math.floor(Math.pow(random(), 0.35) * tierRange);
-    const power = 11 - tier;
-    const value = definition.valueAtTier(power);
+    const power = 9 - tier;
+    const value = definition.valueAtTier(power, random);
     result.push({ ...definition, tier, value, valueLabel: definition.format(value) });
   }
   return result;
+}
+
+export function getStrongestAffixTier(level: number): number {
+  if (level >= 100) return 1;
+  if (level >= 81) return 2;
+  if (level >= 66) return 3;
+  if (level >= 51) return 4;
+  if (level >= 36) return 5;
+  if (level >= 21) return 6;
+  if (level >= 11) return 7;
+  return 8;
 }
 
 export function addMissingAffixes(item: Omit<EquipmentItem, 'affixes'>): EquipmentItem {
