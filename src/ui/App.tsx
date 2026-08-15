@@ -393,6 +393,7 @@ export function App({ session, bridge, platform, saves }: Props) {
                 <button
                   className="button secondary"
                   type="button"
+                  aria-label="Инвентарь"
                   onClick={() => {
                     soundFX.playClick();
                     setInventoryOpen(true);
