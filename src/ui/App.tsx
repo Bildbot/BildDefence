@@ -572,11 +572,7 @@ function ArenaSelector({ selectedArena, maxUnlockedArena, onChange }: ArenaSelec
       >
         <div className="arena-picker-fade arena-picker-fade-top" aria-hidden="true" />
         <div className="arena-picker-fade arena-picker-fade-bottom" aria-hidden="true" />
-        <div
-          className="arena-option arena-option-adjacent"
-          role="option"
-          aria-selected="false"
-        >
+        <div className="arena-option arena-option-adjacent" role="option" aria-selected="false">
           {previousArena === null ? '\u00a0' : `Арена ${previousArena}`}
         </div>
         <div
