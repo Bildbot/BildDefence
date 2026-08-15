@@ -190,22 +190,6 @@ export function App({ session, bridge, platform, saves }: Props) {
               </div>
               <div className="hud-meter-row">
                 <div
-                  className="barrier-track"
-                  aria-label={`${strings.barrier}: ${Math.ceil(combat.guardianBarrier)} / ${combat.guardianMaxBarrier}`}
-                >
-                  <div
-                    className="barrier-value"
-                    style={{
-                      width: `${(combat.guardianBarrier / combat.guardianMaxBarrier) * 100}%`,
-                    }}
-                  />
-                </div>
-                <span className="bar-label">
-                  {Math.ceil(combat.guardianBarrier)} / {combat.guardianMaxBarrier}
-                </span>
-              </div>
-              <div className="hud-meter-row">
-                <div
                   className="experience-track"
                   aria-label={
                     combat.guardianExperienceForNextLevel === 0
@@ -419,20 +403,6 @@ export function App({ session, bridge, platform, saves }: Props) {
                 value={formatNumber(guardianStats.maxHealth)}
                 upgradeKey="maxHealth"
                 canUpgrade={canSpendOn('maxHealth')}
-                onUpgrade={spendStatPoint}
-              />
-              <GuardianStat
-                label="Барьер"
-                value={formatNumber(guardianStats.maxBarrier)}
-                upgradeKey="maxBarrier"
-                canUpgrade={canSpendOn('maxBarrier')}
-                onUpgrade={spendStatPoint}
-              />
-              <GuardianStat
-                label="Броня"
-                value={`${formatNumber(guardianStats.armorPercent * 100)}%`}
-                upgradeKey="armorPercent"
-                canUpgrade={canSpendOn('armorPercent')}
                 onUpgrade={spendStatPoint}
               />
               <GuardianStat

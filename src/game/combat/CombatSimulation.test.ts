@@ -4,7 +4,6 @@ import { CombatSimulation } from './CombatSimulation';
 
 const guardian = {
   maxHealth: 100,
-  maxBarrier: 0,
   armorPercent: 0,
   healthRegenPerSecond: 0,
   damage: 100,
@@ -112,13 +111,12 @@ describe('CombatSimulation', () => {
     expect(simulation.getSnapshot().guardianHealth).toBe(0);
   });
 
-  it('applies armor, barrier, health regeneration, and barrier recovery', () => {
+  it('applies percentage armor and health regeneration', () => {
     const defence: CombatDefinition = {
       ...fastVictory,
       guardian: {
         ...guardian,
         maxHealth: 100,
-        maxBarrier: 10,
         armorPercent: 0.5,
         healthRegenPerSecond: 1,
         damage: 0,
@@ -136,10 +134,29 @@ describe('CombatSimulation', () => {
     const simulation = new CombatSimulation(defence, 1);
     simulation.step(1);
     simulation.step(1);
-    expect(simulation.getSnapshot()).toMatchObject({ guardianHealth: 90, guardianBarrier: 0 });
+    expect(simulation.getSnapshot()).toMatchObject({ guardianHealth: 80 });
     if (simulation.enemies[0]) simulation.enemies[0].active = false;
     simulation.step(4);
-    expect(simulation.getSnapshot()).toMatchObject({ guardianHealth: 94, guardianBarrier: 8 });
+    expect(simulation.getSnapshot()).toMatchObject({ guardianHealth: 84 });
+  });
+
+  it('caps physical damage reduction from armor at 75%', () => {
+    const defence: CombatDefinition = {
+      ...fastVictory,
+      guardian: { ...guardian, armorPercent: 1, damage: 0 },
+      enemy: {
+        ...fastVictory.enemy,
+        speed: 1000,
+        attackDamage: 40,
+        attackIntervalSeconds: 1,
+        stopDistance: 80,
+      },
+      wave: { enemyCount: 1, spawnIntervalSeconds: 1 },
+    };
+    const simulation = new CombatSimulation(defence, 1);
+    simulation.step(1);
+    simulation.step(1);
+    expect(simulation.getSnapshot().guardianHealth).toBe(90);
   });
 
   it('keeps the first balanced arena winnable and close to one minute', () => {

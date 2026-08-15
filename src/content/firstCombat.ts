@@ -1,6 +1,5 @@
 export type GuardianDefinition = Readonly<{
   maxHealth: number;
-  maxBarrier: number;
   armorPercent: number;
   healthRegenPerSecond: number;
   damage: number;
@@ -36,8 +35,7 @@ export const FIRST_COMBAT: CombatDefinition = {
   arenaLevel: 1,
   guardian: {
     maxHealth: 100,
-    maxBarrier: 25,
-    armorPercent: 0.1,
+    armorPercent: 0,
     healthRegenPerSecond: 0.5,
     damage: 20,
     attacksPerSecond: 1.25,

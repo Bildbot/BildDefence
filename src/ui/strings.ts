@@ -19,7 +19,6 @@ export const strings = {
   defeatHint: 'Враги прорвались к стражу.',
   restart: 'Повторить забег',
   health: 'Здоровье стража',
-  barrier: 'Барьер',
   enemies: 'Враги',
   time: 'Время',
   music: 'Музыка',

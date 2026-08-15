@@ -10,8 +10,6 @@ describe('GuardianStats', () => {
   it('applies the agreed value for one point in every stat', () => {
     const upgraded = applyGuardianStatUpgrades(FIRST_COMBAT.guardian, {
       maxHealth: 1,
-      maxBarrier: 1,
-      armorPercent: 1,
       healthRegenPerSecond: 1,
       damage: 1,
       attacksPerSecond: 1,
@@ -21,8 +19,6 @@ describe('GuardianStats', () => {
 
     expect(upgraded).toMatchObject({
       maxHealth: 110,
-      maxBarrier: 30,
-      armorPercent: 0.12,
       healthRegenPerSecond: 0.6,
       damage: 22,
       attacksPerSecond: 1.325,
@@ -35,8 +31,6 @@ describe('GuardianStats', () => {
   it('caps bounded stats at their configured maximums', () => {
     const manyUpgrades = {
       maxHealth: 0,
-      maxBarrier: 0,
-      armorPercent: 100,
       healthRegenPerSecond: 100,
       damage: 0,
       attacksPerSecond: 100,
@@ -46,13 +40,11 @@ describe('GuardianStats', () => {
     const upgraded = applyGuardianStatUpgrades(FIRST_COMBAT.guardian, manyUpgrades);
 
     expect(upgraded).toMatchObject({
-      armorPercent: 0.5,
       healthRegenPerSecond: 5,
       attacksPerSecond: 3,
       criticalChance: 0.5,
       criticalMultiplier: 3,
     });
-    expect(canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'armorPercent')).toBe(false);
     expect(canUpgradeGuardianStat(FIRST_COMBAT.guardian, manyUpgrades, 'damage')).toBe(true);
   });
 

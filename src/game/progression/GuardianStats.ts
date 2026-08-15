@@ -2,8 +2,6 @@ import type { GuardianDefinition } from '../../content/firstCombat';
 
 export const GUARDIAN_STAT_UPGRADE_KEYS = [
   'maxHealth',
-  'maxBarrier',
-  'armorPercent',
   'healthRegenPerSecond',
   'damage',
   'attacksPerSecond',
@@ -24,8 +22,6 @@ export const GUARDIAN_STAT_UPGRADE_RULES: Readonly<
   Record<GuardianStatUpgradeKey, GuardianStatUpgradeRule>
 > = {
   maxHealth: { increment: 10 },
-  maxBarrier: { increment: 5 },
-  armorPercent: { increment: 0.02, maximum: 0.5 },
   healthRegenPerSecond: { increment: 0.1, maximum: 5 },
   damage: { increment: 2 },
   attacksPerSecond: { increment: 0.075, maximum: 3 },
@@ -35,8 +31,6 @@ export const GUARDIAN_STAT_UPGRADE_RULES: Readonly<
 
 export const DEFAULT_GUARDIAN_STAT_UPGRADES: GuardianStatUpgrades = {
   maxHealth: 0,
-  maxBarrier: 0,
-  armorPercent: 0,
   healthRegenPerSecond: 0,
   damage: 0,
   attacksPerSecond: 0,
@@ -54,16 +48,6 @@ export function applyGuardianStatUpgrades(
       base.maxHealth,
       upgrades.maxHealth,
       GUARDIAN_STAT_UPGRADE_RULES.maxHealth,
-    ),
-    maxBarrier: applyUpgrade(
-      base.maxBarrier,
-      upgrades.maxBarrier,
-      GUARDIAN_STAT_UPGRADE_RULES.maxBarrier,
-    ),
-    armorPercent: applyUpgrade(
-      base.armorPercent,
-      upgrades.armorPercent,
-      GUARDIAN_STAT_UPGRADE_RULES.armorPercent,
     ),
     healthRegenPerSecond: applyUpgrade(
       base.healthRegenPerSecond,

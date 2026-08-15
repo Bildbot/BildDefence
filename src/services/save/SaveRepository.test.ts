@@ -51,7 +51,11 @@ describe('SaveRepository', () => {
           completedRuns: 7,
           unspentStatPoints: 2,
           guardianTotalExperience: 500,
-          guardianStatUpgrades: DEFAULT_SAVE.progression.guardianStatUpgrades,
+          guardianStatUpgrades: {
+            ...DEFAULT_SAVE.progression.guardianStatUpgrades,
+            maxBarrier: 0,
+            armorPercent: 0,
+          },
         },
       }),
     );
@@ -134,26 +138,28 @@ describe('SaveRepository', () => {
     expect(progression.guardianStatUpgrades.maxHealth).toBe(0);
   });
 
-  it('does not spend points on a stat that already reached its cap', async () => {
+  it('refunds points spent on removed barrier and armor stats during migration', async () => {
     const storage = new MemoryStorage();
     storage.values.set(
       SAVE_KEY,
       JSON.stringify({
         ...DEFAULT_SAVE,
+        version: 4,
         progression: {
           ...DEFAULT_SAVE.progression,
           unspentStatPoints: 1,
           guardianStatUpgrades: {
             ...DEFAULT_SAVE.progression.guardianStatUpgrades,
+            maxBarrier: 3,
             armorPercent: 20,
           },
         },
       }),
     );
     const repository = new SaveRepository(storage);
-    const progression = await repository.spendGuardianStatPoint('armorPercent');
-    expect(progression.unspentStatPoints).toBe(1);
-    expect(progression.guardianStatUpgrades.armorPercent).toBe(20);
+    const progression = (await repository.load()).progression;
+    expect(progression.unspentStatPoints).toBe(24);
+    expect(progression.guardianStatUpgrades).toEqual(DEFAULT_SAVE.progression.guardianStatUpgrades);
   });
 
   it('quarantines malformed data and safely recovers', async () => {

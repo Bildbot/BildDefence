@@ -37,10 +37,21 @@ export type RunSettlement = Readonly<{
   guardianTotalExperience: number;
 }>;
 
-export type SaveDataV4 = Readonly<{
-  version: 4;
+export type SaveDataV5 = Readonly<{
+  version: 5;
   settings: GameSettings;
   progression: GameProgression;
+}>;
+
+type LegacyGuardianStatUpgrades = Readonly<
+  Record<GuardianStatUpgradeKey | 'maxBarrier' | 'armorPercent', number>
+>;
+
+type LegacySaveDataV4 = Readonly<{
+  version: 4;
+  settings: GameSettings;
+  progression: Omit<GameProgression, 'guardianStatUpgrades'> &
+    Readonly<{ guardianStatUpgrades: LegacyGuardianStatUpgrades }>;
 }>;
 
 type LegacySaveDataV3 = Readonly<{
@@ -50,7 +61,7 @@ type LegacySaveDataV3 = Readonly<{
     completedRuns: number;
     unspentStatPoints: number;
     guardianTotalExperience: number;
-    guardianStatUpgrades: GuardianStatUpgrades;
+    guardianStatUpgrades: LegacyGuardianStatUpgrades;
   }>;
 }>;
 
@@ -60,7 +71,7 @@ type LegacySaveDataV2 = Readonly<{
   progression: Readonly<{
     completedRuns: number;
     unspentStatPoints: number;
-    guardianStatUpgrades: GuardianStatUpgrades;
+    guardianStatUpgrades: LegacyGuardianStatUpgrades;
   }>;
 }>;
 
@@ -87,7 +98,7 @@ export const DEFAULT_PROGRESSION: GameProgression = {
   guardianStatUpgrades: DEFAULT_GUARDIAN_STAT_UPGRADES,
 };
 
-export const DEFAULT_SAVE: SaveDataV4 = {
+export const DEFAULT_SAVE: SaveDataV5 = {
   version: SAVE_VERSION,
   settings: DEFAULT_SETTINGS,
   progression: DEFAULT_PROGRESSION,
@@ -98,13 +109,18 @@ export class SaveRepository {
 
   constructor(private readonly storage: StorageAdapter) {}
 
-  async load(): Promise<SaveDataV4> {
+  async load(): Promise<SaveDataV5> {
     const raw = await this.storage.read(SAVE_KEY);
     if (raw === null) return DEFAULT_SAVE;
 
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (isSaveDataV4(parsed)) return parsed;
+      if (isSaveDataV5(parsed)) return parsed;
+      if (isLegacySaveDataV4(parsed)) {
+        const migrated = migrateLegacySaveV4(parsed);
+        await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
       if (isLegacySaveDataV3(parsed)) {
         const migrated = migrateLegacySaveV3(parsed);
         await this.storage.write(SAVE_KEY, JSON.stringify(migrated));
@@ -191,7 +207,7 @@ export class SaveRepository {
     return nextProgression;
   }
 
-  private async mutate(transform: (current: SaveDataV4) => SaveDataV4): Promise<void> {
+  private async mutate(transform: (current: SaveDataV5) => SaveDataV5): Promise<void> {
     const operation = this.mutationQueue.then(async () => {
       const current = await this.load();
       const next = transform(current);
@@ -219,30 +235,66 @@ function validateRunSettlement(settlement: RunSettlement): void {
   }
 }
 
-function migrateLegacySaveV3(save: LegacySaveDataV3): SaveDataV4 {
+function migrateGuardianStatUpgrades(upgrades: LegacyGuardianStatUpgrades): GuardianStatUpgrades {
+  return {
+    maxHealth: upgrades.maxHealth,
+    healthRegenPerSecond: upgrades.healthRegenPerSecond,
+    damage: upgrades.damage,
+    attacksPerSecond: upgrades.attacksPerSecond,
+    criticalChance: upgrades.criticalChance,
+    criticalMultiplier: upgrades.criticalMultiplier,
+  };
+}
+
+function migrateLegacySaveV4(save: LegacySaveDataV4): SaveDataV5 {
+  const removedStatPoints =
+    save.progression.guardianStatUpgrades.maxBarrier +
+    save.progression.guardianStatUpgrades.armorPercent;
   return {
     version: SAVE_VERSION,
     settings: save.settings,
     progression: {
       ...save.progression,
+      unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
+      guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
+    },
+  };
+}
+
+function migrateLegacySaveV3(save: LegacySaveDataV3): SaveDataV5 {
+  const removedStatPoints =
+    save.progression.guardianStatUpgrades.maxBarrier +
+    save.progression.guardianStatUpgrades.armorPercent;
+  return {
+    version: SAVE_VERSION,
+    settings: save.settings,
+    progression: {
+      ...save.progression,
+      unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
+      guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
       maxUnlockedArena: 1,
     },
   };
 }
 
-function migrateLegacySaveV2(save: LegacySaveDataV2): SaveDataV4 {
+function migrateLegacySaveV2(save: LegacySaveDataV2): SaveDataV5 {
+  const removedStatPoints =
+    save.progression.guardianStatUpgrades.maxBarrier +
+    save.progression.guardianStatUpgrades.armorPercent;
   return {
     version: SAVE_VERSION,
     settings: save.settings,
     progression: {
       ...save.progression,
+      unspentStatPoints: save.progression.unspentStatPoints + removedStatPoints,
+      guardianStatUpgrades: migrateGuardianStatUpgrades(save.progression.guardianStatUpgrades),
       guardianTotalExperience: 0,
       maxUnlockedArena: 1,
     },
   };
 }
 
-function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV4 {
+function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV5 {
   return {
     version: SAVE_VERSION,
     settings: save.settings,
@@ -256,7 +308,7 @@ function migrateLegacySaveV1(save: LegacySaveDataV1): SaveDataV4 {
   };
 }
 
-function isSaveDataV4(value: unknown): value is SaveDataV4 {
+function isSaveDataV5(value: unknown): value is SaveDataV5 {
   if (!isRecord(value) || value.version !== SAVE_VERSION) return false;
   if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
   const { settings, progression } = value;
@@ -270,6 +322,20 @@ function isSaveDataV4(value: unknown): value is SaveDataV4 {
   );
 }
 
+function isLegacySaveDataV4(value: unknown): value is LegacySaveDataV4 {
+  if (!isRecord(value) || value.version !== 4) return false;
+  if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
+  const { settings, progression } = value;
+  return (
+    isSettings(settings) &&
+    isNonNegativeInteger(progression.completedRuns) &&
+    isNonNegativeInteger(progression.unspentStatPoints) &&
+    isValidTotalExperience(progression.guardianTotalExperience) &&
+    isArenaLevel(progression.maxUnlockedArena) &&
+    isLegacyGuardianStatUpgrades(progression.guardianStatUpgrades)
+  );
+}
+
 function isLegacySaveDataV3(value: unknown): value is LegacySaveDataV3 {
   if (!isRecord(value) || value.version !== 3) return false;
   if (!isRecord(value.settings) || !isRecord(value.progression)) return false;
@@ -278,7 +344,7 @@ function isLegacySaveDataV3(value: unknown): value is LegacySaveDataV3 {
     isNonNegativeInteger(value.progression.completedRuns) &&
     isNonNegativeInteger(value.progression.unspentStatPoints) &&
     isValidTotalExperience(value.progression.guardianTotalExperience) &&
-    isGuardianStatUpgrades(value.progression.guardianStatUpgrades)
+    isLegacyGuardianStatUpgrades(value.progression.guardianStatUpgrades)
   );
 }
 
@@ -289,7 +355,7 @@ function isLegacySaveDataV2(value: unknown): value is LegacySaveDataV2 {
     isSettings(value.settings) &&
     isNonNegativeInteger(value.progression.completedRuns) &&
     isNonNegativeInteger(value.progression.unspentStatPoints) &&
-    isGuardianStatUpgrades(value.progression.guardianStatUpgrades)
+    isLegacyGuardianStatUpgrades(value.progression.guardianStatUpgrades)
   );
 }
 
@@ -313,6 +379,15 @@ function isSettings(
 function isGuardianStatUpgrades(value: unknown): value is GuardianStatUpgrades {
   if (!isRecord(value)) return false;
   return GUARDIAN_STAT_UPGRADE_KEYS.every((key) => isNonNegativeInteger(value[key]));
+}
+
+function isLegacyGuardianStatUpgrades(value: unknown): value is LegacyGuardianStatUpgrades {
+  if (!isRecord(value)) return false;
+  return (
+    isNonNegativeInteger(value.maxBarrier) &&
+    isNonNegativeInteger(value.armorPercent) &&
+    isGuardianStatUpgrades(value)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

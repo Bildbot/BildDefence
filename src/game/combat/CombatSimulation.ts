@@ -35,8 +35,6 @@ export type CombatSnapshot = Readonly<{
   arenaLevel: number;
   guardianHealth: number;
   guardianMaxHealth: number;
-  guardianBarrier: number;
-  guardianMaxBarrier: number;
   guardianLevel: number;
   guardianExperience: number;
   guardianExperienceForNextLevel: number;
@@ -52,18 +50,15 @@ export type CombatSnapshot = Readonly<{
 
 const MAX_PROJECTILES = 64;
 const SPAWN_MARGIN = 28;
-const BARRIER_RECOVERY_DELAY_SECONDS = 3;
-const BARRIER_RECOVERY_PER_SECOND = 0.2;
+export const MAX_ARMOR_PERCENT = 0.75;
 
 export class CombatSimulation {
   readonly enemies: EnemyState[];
   readonly projectiles: ProjectileState[];
 
   private guardianHealth: number;
-  private guardianBarrier: number;
   private readonly progression: GuardianProgression;
   private experienceRemainder = 0;
-  private secondsSinceDamage = BARRIER_RECOVERY_DELAY_SECONDS;
   private elapsedSeconds = 0;
   private spawnedEnemies = 0;
   private defeatedEnemies = 0;
@@ -78,7 +73,6 @@ export class CombatSimulation {
     initialTotalExperience = 0,
   ) {
     this.guardianHealth = definition.guardian.maxHealth;
-    this.guardianBarrier = definition.guardian.maxBarrier;
     this.progression = new GuardianProgression(initialTotalExperience);
     this.randomState = seed || 1;
     this.enemies = Array.from({ length: definition.wave.enemyCount }, (_, id) => ({
@@ -121,8 +115,6 @@ export class CombatSimulation {
       arenaLevel: this.definition.arenaLevel,
       guardianHealth: this.guardianHealth,
       guardianMaxHealth: this.definition.guardian.maxHealth,
-      guardianBarrier: this.guardianBarrier,
-      guardianMaxBarrier: this.definition.guardian.maxBarrier,
       guardianLevel: progression.level,
       guardianExperience: progression.experience,
       guardianExperienceForNextLevel: progression.experienceForNextLevel,
@@ -218,25 +210,19 @@ export class CombatSimulation {
   }
 
   private updateGuardianRecovery(deltaSeconds: number): void {
-    this.secondsSinceDamage += deltaSeconds;
     this.guardianHealth = Math.min(
       this.definition.guardian.maxHealth,
       this.guardianHealth + this.definition.guardian.healthRegenPerSecond * deltaSeconds,
     );
-    if (this.secondsSinceDamage < BARRIER_RECOVERY_DELAY_SECONDS) return;
-    this.guardianBarrier = Math.min(
-      this.definition.guardian.maxBarrier,
-      this.guardianBarrier +
-        this.definition.guardian.maxBarrier * BARRIER_RECOVERY_PER_SECOND * deltaSeconds,
-    );
   }
 
   private receiveDamage(physicalDamage: number): void {
-    this.secondsSinceDamage = 0;
-    const damage = physicalDamage * (1 - this.definition.guardian.armorPercent);
-    const absorbed = Math.min(this.guardianBarrier, damage);
-    this.guardianBarrier -= absorbed;
-    this.guardianHealth = Math.max(0, this.guardianHealth - (damage - absorbed));
+    const armorPercent = Math.min(
+      MAX_ARMOR_PERCENT,
+      Math.max(0, this.definition.guardian.armorPercent),
+    );
+    const damage = physicalDamage * (1 - armorPercent);
+    this.guardianHealth = Math.max(0, this.guardianHealth - damage);
   }
 
   private updateProjectiles(deltaSeconds: number): void {
