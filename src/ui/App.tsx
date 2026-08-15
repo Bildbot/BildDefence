@@ -26,6 +26,7 @@ import {
 } from '../services/save/SaveRepository';
 import type { GameBridge } from '../shared/GameBridge';
 import { GameCanvas } from './GameCanvas';
+import { EquipmentIcon } from './EquipmentIcon';
 import { SettingsDialog } from './SettingsDialog';
 import { strings } from './strings';
 
@@ -581,25 +582,45 @@ function InventoryDialog({ equipment, onEquip, onClose }: EquipmentDialogProps) 
         aria-modal="true"
         aria-label="Инвентарь"
       >
-        <p className="eyebrow">ЭКИПИРОВКА</p>
-        <h2>Инвентарь</h2>
+        <div className="inventory-title">
+          <EquipmentIcon slot="backpack" />
+          <div>
+            <p className="eyebrow">ЭКИПИРОВКА</p>
+            <h2>Инвентарь</h2>
+          </div>
+        </div>
+        <h3 className="inventory-section-title">Надето</h3>
         <div className="equipment-slots">
           {EQUIPMENT_SLOTS.map((slot) => {
             const item = getEquippedItem(equipment, slot);
             return (
-              <button key={slot} type="button" onClick={() => item && setSelectedId(item.id)}>
-                <span>{SLOT_LABELS[slot]}</span>
-                <strong>{item?.name ?? 'Пусто'}</strong>
+              <button
+                key={slot}
+                className={item ? 'filled' : 'empty'}
+                type="button"
+                aria-label={`${SLOT_LABELS[slot]}: ${item?.name ?? 'пусто'}`}
+                onClick={() => item && setSelectedId(item.id)}
+              >
+                <EquipmentIcon slot={slot} />
+                <span className="slot-copy">
+                  <span>{SLOT_LABELS[slot]}</span>
+                  <strong>{item?.name ?? 'Пусто'}</strong>
+                </span>
               </button>
             );
           })}
         </div>
-        <div className="inventory-items" role="list" aria-label="Предметы">
+        <div className="inventory-section-heading">
+          <h3 className="inventory-section-title">В рюкзаке</h3>
+          <span>{equipment.items.length}</span>
+        </div>
+        <div className="inventory-items" role="list" aria-label="Предметы в рюкзаке">
           {equipment.items.map((item) => (
             <ItemCard
               key={item.id}
               item={item}
               selected={item.id === selectedId}
+              equipped={getEquippedItem(equipment, item.slot)?.id === item.id}
               onClick={() => setSelectedId(item.id)}
             />
           ))}
@@ -614,6 +635,13 @@ function InventoryDialog({ equipment, onEquip, onClose }: EquipmentDialogProps) 
         <button className="button primary" type="button" onClick={onClose}>
           Закрыть
         </button>
+        <small className="icon-attribution">
+          Иконки:{' '}
+          <a href="https://game-icons.net/" target="_blank" rel="noreferrer">
+            Game-icons.net
+          </a>{' '}
+          · CC BY 3.0
+        </small>
       </section>
     </div>
   );
@@ -643,6 +671,7 @@ function RewardDialog({
               key={item.id}
               item={item}
               selected={item.id === selectedId}
+              equipped={getEquippedItem(equipment, item.slot)?.id === item.id}
               onClick={() => setSelectedId(item.id)}
             />
           ))}
@@ -665,10 +694,12 @@ function RewardDialog({
 function ItemCard({
   item,
   selected,
+  equipped,
   onClick,
 }: {
   item: EquipmentItem;
   selected: boolean;
+  equipped: boolean;
   onClick: () => void;
 }) {
   return (
@@ -677,11 +708,15 @@ function ItemCard({
       type="button"
       onClick={onClick}
     >
-      <span>
-        {SLOT_LABELS[item.slot]} · ур. {item.level}
+      <EquipmentIcon slot={item.slot} />
+      <span className="item-card-copy">
+        <span>
+          {SLOT_LABELS[item.slot]} · ур. {item.level}
+        </span>
+        <strong>{item.name}</strong>
+        <small>{item.primaryValue}</small>
       </span>
-      <strong>{item.name}</strong>
-      <small>{item.primaryValue}</small>
+      {equipped && <em>Надето</em>}
     </button>
   );
 }
@@ -697,9 +732,14 @@ function ItemDetails({
 }) {
   return (
     <article className={`item-details rarity-${item.rarity}`}>
-      <div>
-        <span>{RARITY_LABELS[item.rarity]}</span>
-        <strong>{item.name}</strong>
+      <div className="item-details-heading">
+        <EquipmentIcon slot={item.slot} />
+        <div>
+          <span>
+            {SLOT_LABELS[item.slot]} · {RARITY_LABELS[item.rarity]}
+          </span>
+          <strong>{item.name}</strong>
+        </div>
       </div>
       <dl>
         <div>

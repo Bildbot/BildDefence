@@ -33,8 +33,11 @@ test('shows the six equipment slots and the starting bow', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Инвентарь' })).toBeVisible();
   await expect(page.getByText('Короткий лук', { exact: true }).first()).toBeVisible();
   for (const slot of ['Лук', 'Колчан', 'Шлем', 'Броня', 'Перчатки', 'Штаны']) {
-    await expect(page.getByRole('button').filter({ hasText: slot }).first()).toBeVisible();
+    const equipmentSlot = page.getByRole('button', { name: new RegExp(`^${slot}:`) });
+    await expect(equipmentSlot).toBeVisible();
+    await expect(equipmentSlot.locator('[data-equipment-icon]')).toBeVisible();
   }
+  await expect(page.getByRole('heading', { name: 'В рюкзаке' })).toBeVisible();
 });
 
 test('keeps the same logical arena on desktop and mobile', async ({ page }) => {

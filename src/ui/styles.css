@@ -199,6 +199,49 @@ button {
   overflow-y: auto;
 }
 
+.inventory-title {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 12px;
+  text-align: left;
+}
+
+.inventory-title > svg {
+  width: 38px;
+  color: #67d8f1;
+}
+
+.inventory-title h2,
+.inventory-title p {
+  margin: 0;
+}
+
+.inventory-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.inventory-section-heading > span {
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #9ed9e8;
+  background: rgba(103, 216, 241, 0.12);
+  font-size: 11px;
+}
+
+.inventory-section-title {
+  align-self: flex-start;
+  margin: 12px 0 7px;
+  color: #9ed9e8;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .equipment-slots,
 .reward-items {
   display: grid;
@@ -210,6 +253,10 @@ button {
 
 .equipment-slots button,
 .item-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   min-height: 64px;
   padding: 9px;
   border: 1px solid rgba(112, 212, 241, 0.18);
@@ -220,8 +267,30 @@ button {
   cursor: pointer;
 }
 
-.equipment-slots span,
-.item-card span,
+.equipment-slots button > svg,
+.item-card > svg {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  color: #8dd7e8;
+}
+
+.equipment-slots button.empty > svg {
+  color: #456874;
+}
+
+.equipment-slots button.empty strong {
+  color: #64818c;
+  font-weight: 600;
+}
+
+.slot-copy,
+.item-card-copy {
+  min-width: 0;
+}
+
+.equipment-slots .slot-copy > span,
+.item-card-copy > span,
 .item-card small,
 .item-details span {
   display: block;
@@ -234,6 +303,21 @@ button {
   display: block;
   margin: 3px 0;
   font-size: 12px;
+}
+
+.item-card em {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  color: #07171f;
+  background: #67d8f1;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .inventory-items {
@@ -281,6 +365,33 @@ button {
 
 .item-details > div {
   margin-bottom: 8px;
+}
+
+.item-details-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.item-details-heading > svg {
+  width: 38px;
+  height: 38px;
+  color: #8dd7e8;
+}
+
+.item-details-heading strong {
+  display: block;
+  margin-top: 2px;
+}
+
+.icon-attribution {
+  margin-top: 8px;
+  color: #587984;
+  font-size: 9px;
+}
+
+.icon-attribution a {
+  color: #789eaa;
 }
 
 .item-details dl {
