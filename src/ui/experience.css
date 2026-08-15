@@ -1,35 +1,4 @@
-.hud {
-  padding: 8px 14px 9px 16px;
-}
-
-.hud-title-row strong {
-  white-space: nowrap;
-}
-
-.health-track {
-  height: 14px;
-  margin: 5px 0 4px;
-}
-
-.experience-track {
-  position: relative;
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #2b2138;
-}
-
-.experience-value {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #a26cf0, #e3b7ff);
-  transition: width 140ms linear;
-}
-
-.hud .experience-track .bar-label {
-  color: #dff8ff;
-  font-size: 7px;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  text-shadow: 0 1px rgba(0, 0, 0, 0.35);
+/* Tactical experience and combat meters styling */
+.hud-meter-row {
+  margin-top: 3px;
 }

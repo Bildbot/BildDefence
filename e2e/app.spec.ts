@@ -27,17 +27,24 @@ test('persists settings across reloads', async ({ page }) => {
   await expect(page.getByRole('checkbox', { name: 'Вибрация' })).not.toBeChecked();
 });
 
-test('shows the six equipment slots and the starting bow', async ({ page }) => {
+test('browses the backpack and filters items from equipment slots', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Инвентарь' }).click();
   await expect(page.getByRole('dialog', { name: 'Инвентарь' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /Рюкзак/ })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Короткий лук', { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel('Предметы в рюкзаке')).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Экипировка' }).click();
   for (const slot of ['Лук', 'Колчан', 'Шлем', 'Броня', 'Перчатки', 'Штаны']) {
     const equipmentSlot = page.getByRole('button', { name: new RegExp(`^${slot}:`) });
     await expect(equipmentSlot).toBeVisible();
     await expect(equipmentSlot.locator('[data-equipment-icon]')).toBeVisible();
   }
-  await expect(page.getByRole('heading', { name: 'В рюкзаке' })).toBeVisible();
+
+  await page.getByRole('button', { name: /^Шлем:/ }).click();
+  await expect(page.getByRole('tab', { name: /Рюкзак/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: 'Фильтр: Шлем' })).toHaveClass(/active/);
 });
 
 test('keeps the same logical arena on desktop and mobile', async ({ page }) => {
@@ -51,7 +58,7 @@ test('keeps the same logical arena on desktop and mobile', async ({ page }) => {
   await expect(frame).toBeVisible();
 });
 
-test('selects unlocked arenas only by vertical scrolling', async ({ page }) => {
+test('selects unlocked arenas with navigation and scrolling', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       'bild-defence.save',
@@ -84,23 +91,23 @@ test('selects unlocked arenas only by vertical scrolling', async ({ page }) => {
   });
   await page.goto('/');
 
-  const picker = page.getByRole('listbox', { name: 'Уровень арены' });
-  await expect(picker.getByRole('option', { selected: true })).toHaveText('Арена 6');
-  await expect(picker.getByText('Арена 7 · закрыта')).toBeVisible();
+  const picker = page.getByLabel('Выбор уровня арены');
+  await expect(picker.getByText('АРЕНА 6')).toBeVisible();
   await expect(page.getByRole('combobox')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Предыдущая арена' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Предыдущая арена' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Арена заблокирована' })).toBeDisabled();
 
   for (const arena of [5, 4, 3, 2, 1]) {
     await picker.dispatchEvent('wheel', { deltaY: -100 });
-    await expect(picker.getByRole('option', { selected: true })).toHaveText(`Арена ${arena}`);
+    await expect(picker.getByText(`АРЕНА ${arena}`)).toBeVisible();
   }
   await picker.dispatchEvent('wheel', { deltaY: -100 });
-  await expect(picker.getByRole('option', { selected: true })).toHaveText('Арена 1');
+  await expect(picker.getByText('АРЕНА 1')).toBeVisible();
 
   for (const arena of [2, 3, 4, 5, 6]) {
     await picker.dispatchEvent('wheel', { deltaY: 100 });
-    await expect(picker.getByRole('option', { selected: true })).toHaveText(`Арена ${arena}`);
+    await expect(picker.getByText(`АРЕНА ${arena}`)).toBeVisible();
   }
   await picker.dispatchEvent('wheel', { deltaY: 100 });
-  await expect(picker.getByRole('option', { selected: true })).toHaveText('Арена 6');
+  await expect(picker.getByText('АРЕНА 6')).toBeVisible();
 });
